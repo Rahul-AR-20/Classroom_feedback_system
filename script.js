@@ -18,7 +18,7 @@ async function startSession() {
   }
 
   try {
-    const res = await fetch("http://localhost:3000/api/session/start", {
+    const res = await fetch("https://classroom-feedback-system.onrender.com/api/session/start", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ subject, teacher, topic }),
@@ -32,7 +32,7 @@ async function startSession() {
       qrContainer.innerHTML = "";
 
       new QRCode(qrContainer, {
-        text: `http://localhost:3000?sessionId=${sessionId}`,
+        text: `https://classroom-feedback-system.onrender.com?sessionId=${sessionId}`,
         width: 200,
         height: 200,
       });
@@ -82,7 +82,7 @@ async function submitFeedback() {
   }
 
   try {
-    const res = await fetch("http://localhost:3000/api/feedback/submit", {
+    const res = await fetch("https://classroom-feedback-system.onrender.com/api/feedback/submit", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ 
@@ -117,7 +117,7 @@ async function loadAnalytics() {
   }
 
   try {
-    const res = await fetch(`http://localhost:3000/api/analytics/${sessionId}`);
+    const res = await fetch(`https://classroom-feedback-system.onrender.com/api/analytics/${sessionId}`);
     const data = await res.json();
 
     if (data.totalResponses !== undefined) {
