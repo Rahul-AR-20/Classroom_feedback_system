@@ -4,9 +4,10 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 const bodyParser = require("body-parser");
 const { v4: uuidv4 } = require("uuid");
+require("dotenv").config();
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors());
@@ -15,9 +16,9 @@ app.use(express.static(__dirname));
 
 // MongoDB Connection
 mongoose
-  .connect("mongodb://127.0.0.1:27017/classroom_feedback")
-  .then(() => console.log("✅ Connected to MongoDB"))
-  .catch((err) => console.error("❌ MongoDB connection error:", err));
+  .connect(process.env.MONGODB_URI)
+  .then(() => console.log("✅ Connected to MongoDB Atlas"))
+  .catch((err) => console.error("❌ MongoDB Atlas connection error:", err));
 
 // Schemas
 const sessionSchema = new mongoose.Schema({
