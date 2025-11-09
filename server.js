@@ -11,7 +11,6 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors());
-app.options('*', cors()); // ✅ Handles preflight requests
 app.use(bodyParser.json());
 app.use(express.static(__dirname));
 
