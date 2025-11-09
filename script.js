@@ -195,7 +195,9 @@ function createRatingDistributionChart(feedbacks) {
 // Create Rating Trend Chart (Line Chart)
 function createRatingTrendChart(feedbacks) {
   const ctx = document.getElementById('trendChart').getContext('2d');
-  
+    if (trendChart) {
+    trendChart.destroy();
+    }
   // Sort feedbacks by time
   const sortedFeedbacks = [...feedbacks].sort((a, b) => 
     new Date(a.createdAt) - new Date(b.createdAt)
