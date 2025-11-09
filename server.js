@@ -11,6 +11,7 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors());
+app.options('*', cors()); // ✅ Handles preflight requests
 app.use(bodyParser.json());
 app.use(express.static(__dirname));
 
@@ -87,9 +88,9 @@ app.get("/api/analytics/:sessionId", async (req, res) => {
         : feedbacks.reduce((acc, f) => acc + f.rating, 0) / totalResponses;
 
     res.json({ totalResponses, avgRating, feedbacks });
-  } catch (err) {
-    console.error("Error fetching analytics:", err);
-    res.status(500).json({ success: false });
+    } catch (err) {
+    console.error("Error fetching analytics:", err.message || err);
+    res.status(500).json({ success: false, message: "Error fetching analytics" });
   }
 });
 
