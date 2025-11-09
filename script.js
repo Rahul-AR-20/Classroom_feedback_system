@@ -192,12 +192,16 @@ function createRatingDistributionChart(feedbacks) {
   });
 }
 
-// Create Rating Trend Chart (Line Chart)
+let trendChart = null; // Add this variable globally near ratingChart
+
 function createRatingTrendChart(feedbacks) {
   const ctx = document.getElementById('trendChart').getContext('2d');
-    if (trendChart) {
+
+  // ✅ Destroy previous trend chart if it exists
+  if (trendChart) {
     trendChart.destroy();
-    }
+  }
+
   // Sort feedbacks by time
   const sortedFeedbacks = [...feedbacks].sort((a, b) => 
     new Date(a.createdAt) - new Date(b.createdAt)
@@ -207,7 +211,8 @@ function createRatingTrendChart(feedbacks) {
   const ratingsOverTime = sortedFeedbacks.map(fb => fb.rating);
   const timeLabels = sortedFeedbacks.map((fb, index) => `Response ${index + 1}`);
 
-  new Chart(ctx, {
+  // ✅ Create new trend chart
+  trendChart = new Chart(ctx, {
     type: 'line',
     data: {
       labels: timeLabels,
@@ -245,6 +250,7 @@ function createRatingTrendChart(feedbacks) {
     }
   });
 }
+
 
 // Display Feedback Comments
 function displayFeedbackComments(feedbacks) {
