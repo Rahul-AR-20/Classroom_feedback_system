@@ -31,8 +31,8 @@
 <!-- Teacher Dashboard -->
 <div id="teacher" class="tab-pane active">
 
-  <!-- 🔐 Teacher Authentication Box -->
-  <div class="card" style="margin-bottom: 20px;">
+  <!-- 🔐 TEACHER AUTH SECTION (shown first) -->
+  <div id="teacherAuthSection" class="card" style="margin-bottom: 20px;">
     <h3>🔐 Teacher Login / Signup</h3>
     <div class="form-group">
       <input id="authName" type="text" class="form-control" placeholder="Name (for signup only)" />
@@ -46,47 +46,52 @@
     <div style="display: flex; gap: 8px; flex-wrap: wrap;">
       <button class="btn btn-success" onclick="doSignup()">Sign Up</button>
       <button class="btn btn-info" onclick="doLogin()">Login</button>
-      <button class="btn btn-danger" onclick="logoutTeacher()">Logout</button>
     </div>
   </div>
 
-  <div class="dashboard-grid">
-    <div class="card">
-      <h3>🚀 Create New Session</h3>
-      <div class="form-group">
-        <label for="subject">Subject</label>
-        <input type="text" id="subject" class="form-control" placeholder="e.g., Mathematics" />
-      </div>
-      <div class="form-group">
-        <label for="teacher">Teacher Name</label>
-        <input type="text" id="teacher" class="form-control" placeholder="Your name" />
-      </div>
-      <div class="form-group">
-        <label for="topic">Today's Topic</label>
-        <input type="text" id="topic" class="form-control" placeholder="e.g., Quadratic Equations" />
-      </div>
-      <button class="btn btn-primary" onclick="startSession()">Start Feedback Session</button>
+  <!-- 🧑‍🏫 TEACHER DASHBOARD (hidden until login) -->
+  <div id="teacherDashboard" style="display:none;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
+      <h3>Teacher Dashboard</h3>
+      <button class="btn btn-danger" onclick="logoutTeacher()">Logout</button>
     </div>
 
-    <div class="card">
-      <h3>📱 QR Code</h3>
-      <div id="qrDisplay" class="qr-display">
-        <div class="empty-state">
-          <div class="emoji">📱</div>
-          <p>Click "Start Feedback Session" to generate QR code</p>
+    <div class="dashboard-grid">
+      <div class="card">
+        <h3>🚀 Create New Session</h3>
+        <div class="form-group">
+          <label for="subject">Subject</label>
+          <input type="text" id="subject" class="form-control" placeholder="e.g., Mathematics" />
+        </div>
+        <div class="form-group">
+          <label for="teacher">Teacher Name</label>
+          <input type="text" id="teacher" class="form-control" placeholder="Your name" />
+        </div>
+        <div class="form-group">
+          <label for="topic">Today's Topic</label>
+          <input type="text" id="topic" class="form-control" placeholder="e.g., Quadratic Equations" />
+        </div>
+        <button class="btn btn-primary" onclick="startSession()">Start Feedback Session</button>
+      </div>
+
+      <div class="card">
+        <h3>📱 QR Code</h3>
+        <div id="qrDisplay" class="qr-display">
+          <div class="empty-state">
+            <div class="emoji">📱</div>
+            <p>Click "Start Feedback Session" to generate QR code</p>
+          </div>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- 🧾 Teacher’s Previous Sessions -->
-  <div class="card" style="margin-top: 20px;">
-    <h3>🧾 My Sessions</h3>
-    <div id="mySessions">
-      <p style="color:#666;">Login to see your saved sessions.</p>
+    <div class="card" style="margin-top: 20px;">
+      <h3>🧾 My Sessions</h3>
+      <div id="mySessions">
+        <p style="color:#666;">Loading your sessions...</p>
+      </div>
     </div>
   </div>
-
 </div>
 
       <!-- Student Feedback -->

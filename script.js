@@ -371,24 +371,37 @@ async function quickAnalytics(sessionId) {
   await loadAnalytics();
 }
 
-// Minimal UI handlers (call from buttons)
 async function doSignup() {
   const name = document.getElementById('authName')?.value.trim();
   const email = document.getElementById('authEmail')?.value.trim();
   const password = document.getElementById('authPass')?.value;
-  if (!name || !email || !password) return alert("Fill name, email, password");
+
+  if (!name || !email || !password) return alert("Fill name, email, and password");
   const res = await signupTeacher(name, email, password);
-  alert(res.success ? "Signup successful! You are logged in." : (res.message || "Signup failed"));
-  if (res.success) loadMySessions();
+
+  if (res.success) {
+    setToken(res.token);
+    alert("Signup successful!");
+    updateTeacherUI();
+  } else {
+    alert(res.message || "Signup failed");
+  }
 }
 
 async function doLogin() {
   const email = document.getElementById('authEmail')?.value.trim();
   const password = document.getElementById('authPass')?.value;
+
   if (!email || !password) return alert("Fill email and password");
   const res = await loginTeacher(email, password);
-  alert(res.success ? "Logged in!" : (res.message || "Login failed"));
-  if (res.success) loadMySessions();
+
+  if (res.success) {
+    setToken(res.token);
+    alert("Login successful!");
+    updateTeacherUI();
+  } else {
+    alert(res.message || "Login failed");
+  }
 }
 
 // Try to load sessions on page load if logged in
@@ -396,8 +409,35 @@ window.addEventListener('load', () => {
   loadMySessions();
 });
 
-// Auto-load feedback form if sessionId in URL
-window.onload = function() {
+function updateTeacherUI() {
+  const token = getToken();
+  const authSection = document.getElementById("teacherAuthSection");
+  const dashboard = document.getElementById("teacherDashboard");
+
+  if (token) {
+    // Logged in → show dashboard
+    authSection.style.display = "none";
+    dashboard.style.display = "block";
+    loadMySessions();
+  } else {
+    // Not logged in → show auth section only
+    authSection.style.display = "block";
+    dashboard.style.display = "none";
+  }
+}
+
+// Override logout to reset UI
+function logoutTeacher() {
+  localStorage.removeItem("authToken");
+  alert("Logged out successfully!");
+  updateTeacherUI();
+}
+
+
+window.onload = function () {
+  updateTeacherUI(); // 👩‍🏫 Show correct teacher view (login/dashboard)
+
+  // 👨‍🎓 Student QR logic
   const urlParams = new URLSearchParams(window.location.search);
   const sessionId = urlParams.get('sessionId');
   if (sessionId) {
