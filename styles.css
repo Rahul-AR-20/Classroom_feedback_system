@@ -437,3 +437,95 @@ body {
         grid-template-columns: repeat(2, 1fr);
     }
 }
+
+/* ============================= */
+/* 🔐 Teacher Authentication Box */
+/* ============================= */
+
+#authBox,
+.card {
+  border-radius: 12px;
+  padding: 20px;
+  background: #fff;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
+}
+
+#authBox h3 {
+  color: #374151;
+  margin-bottom: 12px;
+}
+
+#authBox .form-group {
+  margin-bottom: 10px;
+}
+
+#authBox input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+#authBox input:focus {
+  border-color: #2563eb; /* same blue as your main button */
+}
+
+#authBox button {
+  flex: 1;
+  padding: 8px 14px;
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.1s ease;
+}
+
+#authBox button.btn-success { background: #16a34a; }  /* green */
+#authBox button.btn-info    { background: #2563eb; }  /* blue */
+#authBox button.btn-danger  { background: #dc2626; }  /* red */
+
+#authBox button:hover {
+  transform: translateY(-1px);
+  opacity: 0.9;
+}
+
+#mySessions {
+  padding: 8px 0;
+}
+
+#mySessions ul {
+  list-style: none;
+  padding-left: 0;
+}
+
+#mySessions li {
+  background: #f9fafb;
+  padding: 10px;
+  margin-bottom: 8px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+#mySessions li strong {
+  color: #1e3a8a;
+}
+
+#mySessions li button {
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+#mySessions li button:hover {
+  background: #1d4ed8;
+}

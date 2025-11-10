@@ -1,3 +1,5 @@
+const BASE_URL = window.location.origin;
+
 // Switch Tabs
 function switchTab(tabName) {
   document.querySelectorAll(".tab-pane").forEach(p => p.classList.remove("active"));
@@ -18,21 +20,17 @@ async function startSession() {
   }
 
   try {
-    const res = await fetch("https://classroom-feedback-system.onrender.com/api/session/start", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ subject, teacher, topic }),
-    });
-
-    const data = await res.json();
+    // 🔹 Uses auth route if logged in, public route otherwise
+    const data = await startSessionAuthAware({ subject, teacher, topic });
     
     if (data.success) {
       const sessionId = data.sessionId;
       const qrContainer = document.getElementById("qrDisplay");
       qrContainer.innerHTML = "";
 
+      // ✅ changed to /student?sessionId=... so students go directly to feedback form
       new QRCode(qrContainer, {
-        text: `https://classroom-feedback-system.onrender.com?sessionId=${sessionId}`,
+        text: `${BASE_URL}/student?sessionId=${sessionId}`,
         width: 200,
         height: 200,
       });
@@ -82,7 +80,8 @@ async function submitFeedback() {
   }
 
   try {
-    const res = await fetch("https://classroom-feedback-system.onrender.com/api/feedback/submit", {
+    // ✅ changed to BASE_URL
+    const res = await fetch(`${BASE_URL}/api/feedback/submit`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ 
@@ -117,7 +116,8 @@ async function loadAnalytics() {
   }
 
   try {
-    const res = await fetch(`https://classroom-feedback-system.onrender.com/api/analytics/${sessionId}`);
+    // ✅ changed to BASE_URL
+    const res = await fetch(`${BASE_URL}/api/analytics/${sessionId}`);
     const data = await res.json();
 
     if (data.totalResponses !== undefined) {
@@ -192,26 +192,22 @@ function createRatingDistributionChart(feedbacks) {
   });
 }
 
-let trendChart = null; // Add this variable globally near ratingChart
+let trendChart = null;
 
 function createRatingTrendChart(feedbacks) {
   const ctx = document.getElementById('trendChart').getContext('2d');
 
-  // ✅ Destroy previous trend chart if it exists
   if (trendChart) {
     trendChart.destroy();
   }
 
-  // Sort feedbacks by time
   const sortedFeedbacks = [...feedbacks].sort((a, b) => 
     new Date(a.createdAt) - new Date(b.createdAt)
   );
 
-  // Prepare data for trend
   const ratingsOverTime = sortedFeedbacks.map(fb => fb.rating);
   const timeLabels = sortedFeedbacks.map((fb, index) => `Response ${index + 1}`);
 
-  // ✅ Create new trend chart
   trendChart = new Chart(ctx, {
     type: 'line',
     data: {
@@ -233,24 +229,19 @@ function createRatingTrendChart(feedbacks) {
           beginAtZero: false,
           min: 1,
           max: 5,
-          ticks: {
-            stepSize: 1
-          }
+          ticks: { stepSize: 1 }
         }
       },
       plugins: {
         title: {
           display: true,
           text: 'Rating Trend Over Time',
-          font: {
-            size: 16
-          }
+          font: { size: 16 }
         }
       }
     }
   });
 }
-
 
 // Display Feedback Comments
 function displayFeedbackComments(feedbacks) {
@@ -276,6 +267,134 @@ function displayFeedbackComments(feedbacks) {
   
   commentsContainer.innerHTML = html;
 }
+
+// ===== Teacher Auth (minimal, non-breaking) =====
+function getToken() {
+  return localStorage.getItem("authToken");
+}
+function setToken(t) {
+  localStorage.setItem("authToken", t);
+}
+function logoutTeacher() {
+  localStorage.removeItem("authToken");
+  alert("Logged out");
+  // optional: refresh teacher sessions UI
+  if (typeof loadMySessions === "function") loadMySessions();
+}
+
+// Sign up a teacher
+async function signupTeacher(name, email, password) {
+  const res = await fetch(`${BASE_URL}/api/teacher/signup`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, email, password })
+  });
+  return res.json();
+}
+
+// Login a teacher
+async function loginTeacher(email, password) {
+  const res = await fetch(`${BASE_URL}/api/teacher/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password })
+  });
+  const data = await res.json();
+  if (data.success && data.token) setToken(data.token);
+  return data;
+}
+
+// Start session (auth-aware). Falls back to your existing public route if not logged in.
+async function startSessionAuthAware(payload) {
+  const token = getToken();
+  if (!token) {
+    // public route (your original one) — keeps everything working
+    const res = await fetch(`${BASE_URL}/api/session/start`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    return res.json();
+  } else {
+    // auth-protected route (requires server to have /api/session/start-auth)
+    const res = await fetch(`${BASE_URL}/api/session/start-auth`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+      body: JSON.stringify(payload),
+    });
+    return res.json();
+  }
+}
+
+// (Optional) Show teacher's sessions so they don't copy IDs manually
+async function loadMySessions() {
+  const box = document.getElementById("mySessions");
+  if (!box) return; // not placed in the HTML -> skip
+  const token = getToken();
+  if (!token) {
+    box.innerHTML = `<p style="color:#666">Login to see your sessions.</p>`;
+    return;
+  }
+
+  const res = await fetch(`${BASE_URL}/api/teacher/sessions`, {
+    headers: { "Authorization": `Bearer ${token}` }
+  });
+  const data = await res.json();
+  if (!data.success) {
+    box.innerHTML = `<p style="color:#c00">Failed to load your sessions.</p>`;
+    return;
+  }
+
+  const list = data.sessions || [];
+  if (list.length === 0) {
+    box.innerHTML = `<p style="color:#666">No sessions yet.</p>`;
+    return;
+  }
+
+  let html = `<h4>Your Recent Sessions</h4><ul style="list-style:none;padding-left:0">`;
+  list.forEach(s => {
+    html += `
+      <li style="margin:8px 0">
+        <strong>${s.subject}</strong> – ${s.topic}
+        <code style="margin-left:6px">${s.sessionId}</code>
+        <button style="margin-left:8px" onclick="quickAnalytics('${s.sessionId}')">View Analytics</button>
+      </li>`;
+  });
+  html += `</ul>`;
+  box.innerHTML = html;
+}
+
+async function quickAnalytics(sessionId) {
+  const el = document.getElementById("analyticsSessionId");
+  if (el) el.value = sessionId;
+  switchTab('analytics');
+  await loadAnalytics();
+}
+
+// Minimal UI handlers (call from buttons)
+async function doSignup() {
+  const name = document.getElementById('authName')?.value.trim();
+  const email = document.getElementById('authEmail')?.value.trim();
+  const password = document.getElementById('authPass')?.value;
+  if (!name || !email || !password) return alert("Fill name, email, password");
+  const res = await signupTeacher(name, email, password);
+  alert(res.success ? "Signup successful! You are logged in." : (res.message || "Signup failed"));
+  if (res.success) loadMySessions();
+}
+
+async function doLogin() {
+  const email = document.getElementById('authEmail')?.value.trim();
+  const password = document.getElementById('authPass')?.value;
+  if (!email || !password) return alert("Fill email and password");
+  const res = await loginTeacher(email, password);
+  alert(res.success ? "Logged in!" : (res.message || "Login failed"));
+  if (res.success) loadMySessions();
+}
+
+// Try to load sessions on page load if logged in
+window.addEventListener('load', () => {
+  loadMySessions();
+});
 
 // Auto-load feedback form if sessionId in URL
 window.onload = function() {
