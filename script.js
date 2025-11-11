@@ -16,6 +16,9 @@ async function startSession() {
   const className = document.getElementById("className") 
     ? document.getElementById("className").value.trim() 
     : "Unknown";
+  const section = document.getElementById("section")
+  ? document.getElementById("section").value.trim()
+  : "N/A";
 
   if (subject === "" || teacher === "" || topic === "") {
     alert("Please fill all fields!");
@@ -33,7 +36,7 @@ async function startSession() {
 
       // ✅ Generate QR for students with class + subject
       new QRCode(qrContainer, {
-        text: `${BASE_URL}/student?sessionId=${encodeURIComponent(sessionId)}&class=${encodeURIComponent(className)}&subject=${encodeURIComponent(subject)}`,
+        text: `${BASE_URL}/student?sessionId=${encodeURIComponent(sessionId)}&class=${encodeURIComponent(className)}&section=${encodeURIComponent(section)}&subject=${encodeURIComponent(subject)}`,
         width: 200,
         height: 200,
       });
@@ -42,13 +45,7 @@ async function startSession() {
       const analyticsBox = document.getElementById("analyticsSessionId");
       if (analyticsBox) analyticsBox.value = sessionId;
 
-      // 🔹 Optional: Preload analytics automatically
-      setTimeout(() => {
-        switchTab('analytics');
-        loadAnalytics();
-      }, 800);
-
-      alert(`✅ Session started for ${className} (${subject})`);
+      alert(`✅ Session started for ${className} (${subject}) — QR is ready for students to scan.`);
     } else {
       alert("Failed to start session!");
     }
@@ -451,31 +448,29 @@ function logoutTeacher() {
 window.onload = function() {
   updateTeacherUI(); // Keep this line (already present)
 
-  const url = new URL(window.location.href);
-  const sessionId = url.searchParams.get('sessionId');
-  const className = url.searchParams.get('class');
-  const subject = url.searchParams.get('subject');
+const className = url.searchParams.get('class');
+const section = url.searchParams.get('section');
+const subject = url.searchParams.get('subject');
 
-  // 👨‍🎓 Show class & subject info if available (for student side)
-  if (className || subject) {
-    const detailsDiv = document.getElementById("feedbackDetails");
-    if (detailsDiv) {
-      detailsDiv.innerHTML = `
-        <div style="
-          background: #f4f6ff;
-          border: 2px solid #667eea;
-          border-radius: 12px;
-          padding: 10px 20px;
-          display: inline-block;
-          box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-          font-weight: 600;
-          color: #333;">
-          📘 Class: ${className || "N/A"} &nbsp; | &nbsp;
-          📗 Subject: ${subject || "N/A"}
-        </div>
-      `;
-    }
+if (className || section || subject) {
+  const detailsDiv = document.getElementById("feedbackDetails");
+  if (detailsDiv) {
+    detailsDiv.innerHTML = `
+      <div style="
+        background: #f4f6ff;
+        border: 2px solid #667eea;
+        border-radius: 12px;
+        padding: 10px 20px;
+        display: inline-block;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        font-weight: 600;
+        color: #333;">
+        🏫 Class: ${className || "N/A"} (${section || "N/A"}) &nbsp; | &nbsp;
+        📘 Subject: ${subject || "N/A"}
+      </div>
+    `;
   }
+}
 
   // 👨‍🎓 If a student scanned the QR
   const isStudentLink = url.pathname.includes('student');
