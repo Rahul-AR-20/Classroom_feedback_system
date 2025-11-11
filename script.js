@@ -444,42 +444,46 @@ function logoutTeacher() {
   updateTeacherUI();
 }
 
+window.onload = function () {
+  updateTeacherUI(); // keep this for teacher dashboard logic
 
-window.onload = function() {
-  updateTeacherUI(); // Keep this line (already present)
+  // ✅ Define URL and extract all parameters first
+  const url = new URL(window.location.href);
+  const sessionId = url.searchParams.get('sessionId');
+  const className = url.searchParams.get('class');
+  const section = url.searchParams.get('section');
+  const subject = url.searchParams.get('subject');
 
-const className = url.searchParams.get('class');
-const section = url.searchParams.get('section');
-const subject = url.searchParams.get('subject');
-
-if (className || section || subject) {
-  const detailsDiv = document.getElementById("feedbackDetails");
-  if (detailsDiv) {
-    detailsDiv.innerHTML = `
-      <div style="
-        background: #f4f6ff;
-        border: 2px solid #667eea;
-        border-radius: 12px;
-        padding: 10px 20px;
-        display: inline-block;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        font-weight: 600;
-        color: #333;">
-        🏫 Class: ${className || "N/A"} (${section || "N/A"}) &nbsp; | &nbsp;
-        📘 Subject: ${subject || "N/A"}
-      </div>
-    `;
+  // ✅ Show Class, Section, and Subject for students
+  if (className || section || subject) {
+    const detailsDiv = document.getElementById("feedbackDetails");
+    if (detailsDiv) {
+      detailsDiv.innerHTML = `
+        <div style="
+          background: #f4f6ff;
+          border: 2px solid #667eea;
+          border-radius: 12px;
+          padding: 10px 20px;
+          margin-bottom: 15px;
+          box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+          font-weight: 600;
+          color: #333;
+          text-align: center;">
+          🏫 Class: ${className || "N/A"} (${section || "N/A"})<br>
+          📘 Subject: ${subject || "N/A"}
+        </div>
+      `;
+    }
   }
-}
 
-  // 👨‍🎓 If a student scanned the QR
+  // 👨‍🎓 If student scanned the QR
   const isStudentLink = url.pathname.includes('student');
   if (isStudentLink && sessionId) {
     document.getElementById("sessionInput").value = sessionId;
     switchTab('student');
     showFeedbackForm();
   }
-  // fallback (if no /student in path)
+  // fallback (if root URL but has sessionId)
   else if (sessionId) {
     switchTab('student');
     document.getElementById("sessionInput").value = sessionId;
