@@ -449,6 +449,19 @@ window.onload = function() {
 
   const url = new URL(window.location.href);
   const sessionId = url.searchParams.get('sessionId');
+  const className = url.searchParams.get('class');
+const subject = url.searchParams.get('subject');
+
+if (className && subject) {
+  const header = document.createElement("div");
+  header.innerHTML = `
+    <div style="text-align:center; margin-bottom:10px;">
+      <strong>Class:</strong> ${className} &nbsp; | &nbsp;
+      <strong>Subject:</strong> ${subject}
+    </div>`;
+  const form = document.querySelector(".feedback-form");
+  if (form) form.insertBefore(header, form.firstChild);
+}
   const isStudentLink = url.pathname.includes('student');
 
   // 👨‍🎓 Student scanning QR
@@ -464,3 +477,117 @@ window.onload = function() {
     showFeedbackForm();
   }
 };
+
+
+// ====================
+// CLASS TEMPLATE SYSTEM
+// ====================
+
+// Save class template locally
+function saveClassTemplate() {
+  const className = document.getElementById("className").value.trim();
+  const subject = document.getElementById("subject").value.trim();
+  const teacher = document.getElementById("teacher").value.trim();
+
+  if (!className || !subject || !teacher) {
+    alert("Please fill Class, Subject, and Teacher before saving!");
+    return;
+  }
+
+  const saved = JSON.parse(localStorage.getItem("savedClasses") || "[]");
+
+  if (saved.some(c => c.className === className && c.subject === subject)) {
+    alert("This class and subject combination already exists!");
+    return;
+  }
+
+  saved.push({ className, subject, teacher });
+  localStorage.setItem("savedClasses", JSON.stringify(saved));
+  loadSavedClasses();
+  alert("✅ Class saved!");
+}
+
+// Load saved class templates into dropdown
+function loadSavedClasses() {
+  const dropdown = document.getElementById("savedClasses");
+  if (!dropdown) return;
+
+  const saved = JSON.parse(localStorage.getItem("savedClasses") || "[]");
+  dropdown.innerHTML = `<option value="">Select Saved Class</option>`;
+
+  saved.forEach(c => {
+    const opt = document.createElement("option");
+    opt.value = JSON.stringify(c);
+    opt.textContent = `${c.className} - ${c.subject}`;
+    dropdown.appendChild(opt);
+  });
+}
+
+// When teacher selects a class from dropdown
+function selectSavedClass() {
+  const dropdown = document.getElementById("savedClasses");
+  const selected = dropdown.value;
+  if (!selected) return;
+
+  const { className, subject, teacher } = JSON.parse(selected);
+  document.getElementById("className").value = className;
+  document.getElementById("subject").value = subject;
+  document.getElementById("teacher").value = teacher;
+}
+
+// ====================
+// QUICK SESSION START
+// ====================
+async function startQuickSession() {
+  const dropdown = document.getElementById("savedClasses");
+  const selected = dropdown.value;
+  if (!selected) return alert("Please select a saved class first!");
+
+  const { className, subject, teacher } = JSON.parse(selected);
+
+  const now = new Date();
+  const datePart = now.toISOString().split("T")[0];
+  const timePart = now.toTimeString().split(" ")[0].slice(0, 5).replace(":", "-");
+
+  const sessionId = `${className}_${subject}_${datePart}_${timePart}`.toLowerCase().replace(/\s+/g, "_");
+
+  try {
+    const data = await startSessionAuthAware({
+      subject,
+      teacher,
+      topic: "Auto",
+      sessionId
+    });
+
+    if (data.success) {
+      const qrContainer = document.getElementById("qrDisplay");
+      qrContainer.innerHTML = "";
+
+      new QRCode(qrContainer, {
+        text: `${BASE_URL}/student?sessionId=${encodeURIComponent(sessionId)}&class=${encodeURIComponent(className)}&subject=${encodeURIComponent(subject)}`,
+        width: 200,
+        height: 200
+      });
+
+      const analyticsBox = document.getElementById("analyticsSessionId");
+      if (analyticsBox) analyticsBox.value = sessionId;
+
+      setTimeout(() => {
+        switchTab("analytics");
+        loadAnalytics();
+      }, 1000);
+
+      alert(`✅ Session started for ${className} (${subject})`);
+    } else {
+      alert("Failed to start session.");
+    }
+  } catch (err) {
+    console.error("Error starting quick session:", err);
+    alert("Error connecting to server.");
+  }
+}
+
+// Auto-load saved classes when page loads
+window.addEventListener("load", () => {
+  loadSavedClasses();
+});
