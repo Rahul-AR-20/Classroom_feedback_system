@@ -24,19 +24,29 @@ async function startSession() {
     const data = await startSessionAuthAware({ subject, teacher, topic });
     
     if (data.success) {
-      const sessionId = data.sessionId;
-      const qrContainer = document.getElementById("qrDisplay");
-      qrContainer.innerHTML = "";
+  const sessionId = data.sessionId;
+  const qrContainer = document.getElementById("qrDisplay");
+  qrContainer.innerHTML = "";
 
-      // ✅ changed to /student?sessionId=... so students go directly to feedback form
-      new QRCode(qrContainer, {
-        text: `${BASE_URL}/student?sessionId=${sessionId}`,
-        width: 200,
-        height: 200,
-      });
+  // Generate QR for students
+  new QRCode(qrContainer, {
+    text: `${BASE_URL}/student?sessionId=${sessionId}`,
+    width: 200,
+    height: 200,
+  });
 
-      alert("Session started! Session ID: " + sessionId);
-    } else {
+  // 🔹 Auto-fill analytics box
+  const analyticsBox = document.getElementById("analyticsSessionId");
+  if (analyticsBox) analyticsBox.value = sessionId;
+
+  // 🔹 Optional: Preload analytics automatically
+  setTimeout(() => {
+    switchTab('analytics');
+    loadAnalytics();
+  }, 800);
+
+  alert("Session started! QR ready. Analytics loaded automatically.");
+}else {
       alert("Failed to start session!");
     }
   } catch (err) {
@@ -434,15 +444,23 @@ function logoutTeacher() {
 }
 
 
-window.onload = function () {
-  updateTeacherUI(); // 👩‍🏫 Show correct teacher view (login/dashboard)
+window.onload = function() {
+  updateTeacherUI(); // teacher login/dashboard logic
 
-  // 👨‍🎓 Student QR logic
-  const urlParams = new URLSearchParams(window.location.search);
-  const sessionId = urlParams.get('sessionId');
-  if (sessionId) {
+  const url = new URL(window.location.href);
+  const sessionId = url.searchParams.get('sessionId');
+  const isStudentLink = url.pathname.includes('student');
+
+  // 👨‍🎓 Student scanning QR
+  if (isStudentLink && sessionId) {
     document.getElementById("sessionInput").value = sessionId;
     switchTab('student');
+    showFeedbackForm();
+  } 
+  // fallback (if path is root but has sessionId)
+  else if (sessionId) {
+    switchTab('student');
+    document.getElementById("sessionInput").value = sessionId;
     showFeedbackForm();
   }
 };
