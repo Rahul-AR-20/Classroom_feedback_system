@@ -57,23 +57,35 @@
     </div>
 
     <div class="dashboard-grid">
+
+  <!-- 🚀 Create New Session -->
   <div class="card">
     <h3>🚀 Create New Session</h3>
+
+    <div class="form-group">
+      <label for="className">Class Name</label>
+      <input type="text" id="className" class="form-control" placeholder="e.g., 10A or 12B" />
+    </div>
+
     <div class="form-group">
       <label for="subject">Subject</label>
       <input type="text" id="subject" class="form-control" placeholder="e.g., Mathematics" />
     </div>
+
     <div class="form-group">
       <label for="teacher">Teacher Name</label>
       <input type="text" id="teacher" class="form-control" placeholder="Your name" />
     </div>
+
     <div class="form-group">
       <label for="topic">Today's Topic</label>
       <input type="text" id="topic" class="form-control" placeholder="e.g., Quadratic Equations" />
     </div>
+
     <button class="btn btn-primary" onclick="startSession()">Start Feedback Session</button>
   </div>
 
+  <!-- 📱 QR Code Display -->
   <div class="card">
     <h3>📱 QR Code</h3>
     <div id="qrDisplay" class="qr-display">
@@ -100,7 +112,7 @@
       <div id="student" class="tab-pane">
         <div class="feedback-form">
           <h2 style="text-align:center;color:#667eea;margin-bottom:30px;">📝 Share Your Feedback</h2>
-          
+          <div id="feedbackDetails" style="text-align:center; margin-bottom:15px; color:#333; font-weight:bold;"></div>
           <div class="form-group">
             <label for="sessionInput">Session ID (or scan QR code)</label>
             <input type="text" id="sessionInput" class="form-control" placeholder="Enter session ID"/>

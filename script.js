@@ -8,11 +8,14 @@ function switchTab(tabName) {
   event.target.classList.add("active");
 }
 
-// Start Feedback Session
+// Start Feedback Session (manual start)
 async function startSession() {
   const subject = document.getElementById("subject").value;
   const teacher = document.getElementById("teacher").value;
   const topic = document.getElementById("topic").value;
+  const className = document.getElementById("className") 
+    ? document.getElementById("className").value.trim() 
+    : "Unknown";
 
   if (subject === "" || teacher === "" || topic === "") {
     alert("Please fill all fields!");
@@ -22,31 +25,31 @@ async function startSession() {
   try {
     // 🔹 Uses auth route if logged in, public route otherwise
     const data = await startSessionAuthAware({ subject, teacher, topic });
-    
+
     if (data.success) {
-  const sessionId = data.sessionId;
-  const qrContainer = document.getElementById("qrDisplay");
-  qrContainer.innerHTML = "";
+      const sessionId = data.sessionId;
+      const qrContainer = document.getElementById("qrDisplay");
+      qrContainer.innerHTML = "";
 
-  // Generate QR for students
-  new QRCode(qrContainer, {
-    text: `${BASE_URL}/student?sessionId=${sessionId}`,
-    width: 200,
-    height: 200,
-  });
+      // ✅ Generate QR for students with class + subject
+      new QRCode(qrContainer, {
+        text: `${BASE_URL}/student?sessionId=${encodeURIComponent(sessionId)}&class=${encodeURIComponent(className)}&subject=${encodeURIComponent(subject)}`,
+        width: 200,
+        height: 200,
+      });
 
-  // 🔹 Auto-fill analytics box
-  const analyticsBox = document.getElementById("analyticsSessionId");
-  if (analyticsBox) analyticsBox.value = sessionId;
+      // 🔹 Auto-fill analytics box
+      const analyticsBox = document.getElementById("analyticsSessionId");
+      if (analyticsBox) analyticsBox.value = sessionId;
 
-  // 🔹 Optional: Preload analytics automatically
-  setTimeout(() => {
-    switchTab('analytics');
-    loadAnalytics();
-  }, 800);
+      // 🔹 Optional: Preload analytics automatically
+      setTimeout(() => {
+        switchTab('analytics');
+        loadAnalytics();
+      }, 800);
 
-  alert("Session started! QR ready. Analytics loaded automatically.");
-}else {
+      alert(`✅ Session started for ${className} (${subject})`);
+    } else {
       alert("Failed to start session!");
     }
   } catch (err) {
@@ -54,6 +57,7 @@ async function startSession() {
     alert("Error connecting to server.");
   }
 }
+
 
 // Student Feedback Functions
 let currentRating = 0;
