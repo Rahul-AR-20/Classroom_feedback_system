@@ -1,11 +1,22 @@
 const BASE_URL = window.location.origin;
 
 // Switch Tabs
-function switchTab(tabName) {
+function switchTab(tabName, btnEl = null) {
   document.querySelectorAll(".tab-pane").forEach(p => p.classList.remove("active"));
   document.querySelectorAll(".tab-button").forEach(b => b.classList.remove("active"));
-  document.getElementById(tabName).classList.add("active");
-  event.target.classList.add("active");
+
+  // show pane
+  const pane = document.getElementById(tabName);
+  if (pane) pane.classList.add("active");
+
+  // highlight the matching button (works for programmatic calls too)
+  if (btnEl) {
+    btnEl.classList.add("active");
+  } else {
+    const btn = Array.from(document.querySelectorAll(".tab-button"))
+      .find(b => (b.getAttribute("onclick") || "").includes(`'${tabName}'`));
+    if (btn) btn.classList.add("active");
+  }
 }
 
 // Start Feedback Session (manual start)
@@ -73,7 +84,34 @@ function showFeedbackForm() {
     alert("Please enter session ID!");
     return;
   }
+
+  // ✅ Show feedback form
   document.getElementById("feedbackSection").style.display = "block";
+
+  // ✅ Also show class, section, and subject info if they exist in the URL
+  const url = new URL(window.location.href);
+  const className = url.searchParams.get('class');
+  const section = url.searchParams.get('section');
+  const subject = url.searchParams.get('subject');
+
+  const detailsDiv = document.getElementById("feedbackDetails");
+  if (detailsDiv && (className || section || subject)) {
+    detailsDiv.innerHTML = `
+      <div style="
+        background: #f4f6ff;
+        border: 2px solid #667eea;
+        border-radius: 12px;
+        padding: 10px 20px;
+        margin-bottom: 15px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        font-weight: 600;
+        color: #333;
+        text-align: center;">
+        🏫 Class: ${className || "N/A"} ${section ? "(" + section + ")" : ""} <br>
+        📘 Subject: ${subject || "N/A"}
+      </div>
+    `;
+  }
 }
 
 async function submitFeedback() {
