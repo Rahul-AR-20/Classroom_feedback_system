@@ -476,18 +476,34 @@ window.onload = function () {
     }
   }
 
-  // 👨‍🎓 If student scanned the QR
-  const isStudentLink = url.pathname.includes('student');
+    // 👨‍🎓 If a student scanned the QR (works even if no /student in path)
+  const isStudentLink = url.pathname.includes('student') || url.searchParams.has('sessionId');
+
   if (isStudentLink && sessionId) {
     document.getElementById("sessionInput").value = sessionId;
     switchTab('student');
     showFeedbackForm();
-  }
-  // fallback (if root URL but has sessionId)
-  else if (sessionId) {
-    switchTab('student');
-    document.getElementById("sessionInput").value = sessionId;
-    showFeedbackForm();
+
+    // ✅ Always show class, section, and subject info on student feedback
+    const detailsDiv = document.getElementById("feedbackDetails");
+    if (detailsDiv) {
+      detailsDiv.innerHTML = `
+        <div style="
+          background: #f4f6ff;
+          border: 2px solid #667eea;
+          border-radius: 12px;
+          padding: 10px 20px;
+          margin-bottom: 15px;
+          box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+          font-weight: 600;
+          color: #333;
+          text-align: center;">
+          🏫 Class: ${className || "N/A"} ${section ? "(" + section + ")" : ""}
+          <br>
+          📘 Subject: ${subject || "N/A"}
+        </div>
+      `;
+    }
   }
 };
 
