@@ -47,7 +47,7 @@ async function startSession() {
 
       // ✅ Generate QR for students with class + subject
       new QRCode(qrContainer, {
-        text: `${BASE_URL}/student?sessionId=${encodeURIComponent(sessionId)}&class=${encodeURIComponent(className)}&section=${encodeURIComponent(section)}&subject=${encodeURIComponent(subject)}`,
+        text: `${BASE_URL}/student?sessionId=${sessionId}&class=${className}&section=${section}&subject=${subject}&teacher=${teacher}`,
         width: 200,
         height: 200,
       });
@@ -116,6 +116,11 @@ function showFeedbackForm() {
 
 async function submitFeedback() {
   const sessionId = document.getElementById("sessionInput").value.trim();
+  if (localStorage.getItem("feedback_submitted_" + sessionId)) {
+  alert("You have already submitted feedback using this device.");
+  return;
+}
+  
   const comment = document.getElementById("comment").value;
 
   if (!sessionId) {
@@ -144,6 +149,7 @@ async function submitFeedback() {
     if (data.success) {
       document.getElementById("feedbackSection").style.display = "none";
       document.getElementById("thankYou").style.display = "block";
+      localStorage.setItem("feedback_submitted_" + sessionId, "true");
     } else {
       alert("Failed to submit feedback!");
     }
@@ -491,31 +497,22 @@ window.onload = function () {
   const className = url.searchParams.get('class');
   const section = url.searchParams.get('section');
   const subject = url.searchParams.get('subject');
+  const teacherName = url.searchParams.get('teacher'); 
 
-  // ✅ Show Class, Section, and Subject for students
-  if (className || section || subject) {
-    const detailsDiv = document.getElementById("feedbackDetails");
-    if (detailsDiv) {
-      detailsDiv.innerHTML = `
-        <div style="
-          background: #f4f6ff;
-          border: 2px solid #667eea;
-          border-radius: 12px;
-          padding: 10px 20px;
-          margin-bottom: 15px;
-          box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-          font-weight: 600;
-          color: #333;
-          text-align: center;">
-          🏫 Class: ${className || "N/A"} (${section || "N/A"})<br>
-          📘 Subject: ${subject || "N/A"}
-        </div>
-      `;
-    }
-  }
+
 
     // 👨‍🎓 If a student scanned the QR (works even if no /student in path)
   const isStudentLink = url.pathname.includes('student') || url.searchParams.has('sessionId');
+
+  if (isStudentLink) {
+  // hide teacher and analytics tabs
+  document.querySelector("button[onclick=\"switchTab('teacher')\"]").style.display = "none";
+  document.querySelector("button[onclick=\"switchTab('analytics')\"]").style.display = "none";
+
+  // prevent switching manually
+  document.getElementById("teacher").style.display = "none";
+  document.getElementById("analytics").style.display = "none";
+}
 
   if (isStudentLink && sessionId) {
     document.getElementById("sessionInput").value = sessionId;
@@ -526,21 +523,21 @@ window.onload = function () {
     const detailsDiv = document.getElementById("feedbackDetails");
     if (detailsDiv) {
       detailsDiv.innerHTML = `
-        <div style="
-          background: #f4f6ff;
-          border: 2px solid #667eea;
-          border-radius: 12px;
-          padding: 10px 20px;
-          margin-bottom: 15px;
-          box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-          font-weight: 600;
-          color: #333;
-          text-align: center;">
-          🏫 Class: ${className || "N/A"} ${section ? "(" + section + ")" : ""}
-          <br>
-          📘 Subject: ${subject || "N/A"}
-        </div>
-      `;
+  <div style="
+    background: #f4f6ff;
+    border: 2px solid #667eea;
+    border-radius: 12px;
+    padding: 10px 20px;
+    margin-bottom: 15px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    font-weight: 600;
+    color: #333;
+    text-align: center;">
+    👨‍🏫 Teacher: ${teacherName || "N/A"} <br>
+    🏫 Class: ${className || "N/A"} ${section ? "(" + section + ")" : ""}<br>
+    📘 Subject: ${subject || "N/A"}
+  </div>
+`;
     }
   }
 };
