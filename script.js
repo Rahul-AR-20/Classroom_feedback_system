@@ -27,7 +27,11 @@ function switchTab(tabName, btnEl = null) {
 // Start Feedback Session (manual start)
 async function startSession() {
   const subject = document.getElementById("subject").value;
-  const teacher = document.getElementById("teacher").value;
+  let teacher = document.getElementById("teacher").value;
+if (!teacher) {
+   const storedUser = JSON.parse(localStorage.getItem("teacherUser") || "{}");
+   teacher = storedUser.name || teacher;
+}
   const topic = document.getElementById("topic").value;
   const className = document.getElementById("className") 
     ? document.getElementById("className").value.trim() 
@@ -445,10 +449,11 @@ async function doSignup() {
   const res = await signupTeacher(name, email, password);
 
   if (res.success) {
-    setToken(res.token);
-    alert("Signup successful!");
-    updateTeacherUI();
-  } else {
+  setToken(res.token);
+  localStorage.setItem("teacherUser", JSON.stringify(res.user));  // ⬅ save name
+  alert("Signup successful!");
+  updateTeacherUI();
+}else {
     alert(res.message || "Signup failed");
   }
 }
@@ -461,10 +466,11 @@ async function doLogin() {
   const res = await loginTeacher(email, password);
 
   if (res.success) {
-    setToken(res.token);
-    alert("Login successful!");
-    updateTeacherUI();
-  } else {
+  setToken(res.token);
+  localStorage.setItem("teacherUser", JSON.stringify(res.user));  // ⬅ save name
+  alert("Login successful!");
+  updateTeacherUI();
+}else {
     alert(res.message || "Login failed");
   }
 }
@@ -480,12 +486,19 @@ function updateTeacherUI() {
   const dashboard = document.getElementById("teacherDashboard");
 
   if (token) {
-    // Logged in → show dashboard
     authSection.style.display = "none";
     dashboard.style.display = "block";
+
+    // 🟢 Auto-fill teacher name after login
+    const storedUser = JSON.parse(localStorage.getItem("teacherUser") || "{}");
+    
+    if (storedUser.name) {
+      const teacherInput = document.getElementById("teacher");
+      if (teacherInput) teacherInput.value = storedUser.name;
+    }
+
     loadMySessions();
   } else {
-    // Not logged in → show auth section only
     authSection.style.display = "block";
     dashboard.style.display = "none";
   }
@@ -507,7 +520,13 @@ window.onload = function () {
   const className = url.searchParams.get('class');
   const section = url.searchParams.get('section');
   const subject = url.searchParams.get('subject');
-  const teacherName = url.searchParams.get('teacher'); 
+  let teacherName = url.searchParams.get('teacher');
+
+// FIX: If teacher missing in URL, use logged-in teacher name
+if (!teacherName || teacherName === "undefined") {
+    const storedUser = JSON.parse(localStorage.getItem("teacherUser") || "{}");
+    teacherName = storedUser.name || "N/A";
+}
   const topic = url.searchParams.get("topic");
 
 
