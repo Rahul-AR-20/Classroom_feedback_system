@@ -92,7 +92,11 @@ app.post("/api/teacher/signup", async (req, res) => {
     const hashed = await bcrypt.hash(password, 10);
     const t = await Teacher.create({ name, email, password: hashed });
     const token = jwt.sign({ id: t._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
-    res.json({ success: true, token, teacher: { id: t._id, name: t.name, email: t.email } });
+    res.json({
+  success: true,
+  token,
+  user: { id: t._id, name: t.name, email: t.email }
+});
   } catch (err) {
     console.error("Signup error:", err);
     res.status(500).json({ success: false, message: "Signup failed" });
@@ -107,8 +111,11 @@ app.post("/api/teacher/login", async (req, res) => {
     const ok = await bcrypt.compare(password, t.password);
     if (!ok) return res.status(400).json({ success: false, message: "Invalid credentials" });
     const token = jwt.sign({ id: t._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
-    res.json({ success: true, token, teacher: { id: t._id, name: t.name, email: t.email } });
-  } catch (err) {
+    res.json({
+  success: true,
+  token,
+  user: { id: t._id, name: t.name, email: t.email }
+});  } catch (err) {
     console.error("Login error:", err);
     res.status(500).json({ success: false, message: "Login failed" });
   }
