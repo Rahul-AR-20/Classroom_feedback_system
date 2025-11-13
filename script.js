@@ -1,4 +1,9 @@
 const BASE_URL = window.location.origin;
+// If user opens /student path, redirect to index.html but keep all parameters
+if (window.location.pathname === "/student") {
+    const params = window.location.search;
+    window.location.replace(`${BASE_URL}/index.html${params}`);
+}
 
 // Switch Tabs
 function switchTab(tabName, btnEl = null) {
@@ -47,7 +52,7 @@ async function startSession() {
 
       // ✅ Generate QR for students with class + subject
       new QRCode(qrContainer, {
-        text: `${BASE_URL}/student?sessionId=${sessionId}&class=${className}&section=${section}&subject=${subject}&teacher=${teacher}`,
+        text: `${BASE_URL}/student?sessionId=${sessionId}&class=${className}&section=${section}&subject=${subject}&teacher=${teacher}&topic=${encodeURIComponent(topic)}`,
         width: 200,
         height: 200,
       });
@@ -94,6 +99,7 @@ function showFeedbackForm() {
   const section = url.searchParams.get("section");
   const subject = url.searchParams.get("subject");
   const teacherName = url.searchParams.get("teacher");
+  const topic = url.searchParams.get("topic");
 
   // Update details display
   const detailsDiv = document.getElementById("feedbackDetails");
@@ -111,7 +117,8 @@ function showFeedbackForm() {
         text-align: center;">
         👨‍🏫 Teacher: ${teacherName || "N/A"} <br>
         🏫 Class: ${className || "N/A"} ${section ? "(" + section + ")" : ""}<br>
-        📘 Subject: ${subject || "N/A"}
+        📘 Subject: ${subject || "N/A"}<br>
+        📝 Topic: ${topic || "N/A"}
       </div>
     `;
   }
@@ -501,6 +508,7 @@ window.onload = function () {
   const section = url.searchParams.get('section');
   const subject = url.searchParams.get('subject');
   const teacherName = url.searchParams.get('teacher'); 
+  const topic = url.searchParams.get("topic");
 
 
 
@@ -538,7 +546,8 @@ window.onload = function () {
     text-align: center;">
     👨‍🏫 Teacher: ${teacherName || "N/A"} <br>
     🏫 Class: ${className || "N/A"} ${section ? "(" + section + ")" : ""}<br>
-    📘 Subject: ${subject || "N/A"}
+    📘 Subject: ${subject || "N/A"} <br>
+    📝 Topic: ${topic || "N/A"}
   </div>
 `;
     }
@@ -631,7 +640,7 @@ async function startQuickSession() {
       qrContainer.innerHTML = "";
 
       new QRCode(qrContainer, {
-        text: `${BASE_URL}/student?sessionId=${encodeURIComponent(sessionId)}&class=${encodeURIComponent(className)}&subject=${encodeURIComponent(subject)}`,
+        text: `${BASE_URL}/student?sessionId=${encodeURIComponent(sessionId)}&class=${encodeURIComponent(className)}&subject=${encodeURIComponent(subject)}&teacher=${encodeURIComponent(teacher)}&topic=${encodeURIComponent("Auto")}`,
         width: 200,
         height: 200
       });
