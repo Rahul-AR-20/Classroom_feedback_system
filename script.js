@@ -85,17 +85,19 @@ function showFeedbackForm() {
     return;
   }
 
-  // ✅ Show feedback form
+  // Show feedback form
   document.getElementById("feedbackSection").style.display = "block";
 
-  // ✅ Also show class, section, and subject info if they exist in the URL
+  // Read class/subject/teacher from URL
   const url = new URL(window.location.href);
-  const className = url.searchParams.get('class');
-  const section = url.searchParams.get('section');
-  const subject = url.searchParams.get('subject');
+  const className = url.searchParams.get("class");
+  const section = url.searchParams.get("section");
+  const subject = url.searchParams.get("subject");
+  const teacherName = url.searchParams.get("teacher");
 
+  // Update details display
   const detailsDiv = document.getElementById("feedbackDetails");
-  if (detailsDiv && (className || section || subject)) {
+  if (detailsDiv && (className || section || subject || teacherName)) {
     detailsDiv.innerHTML = `
       <div style="
         background: #f4f6ff;
@@ -107,7 +109,8 @@ function showFeedbackForm() {
         font-weight: 600;
         color: #333;
         text-align: center;">
-        🏫 Class: ${className || "N/A"} ${section ? "(" + section + ")" : ""} <br>
+        👨‍🏫 Teacher: ${teacherName || "N/A"} <br>
+        🏫 Class: ${className || "N/A"} ${section ? "(" + section + ")" : ""}<br>
         📘 Subject: ${subject || "N/A"}
       </div>
     `;
