@@ -432,7 +432,7 @@ async function loadMySessions() {
   // Ensure sessions sorted latest first
   list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
-  let html = `<h3 style="color:#667eea;margin-bottom:10px;">📚 Your Sessions</h3>`;
+  let html = `<h3 style="color:#667eea;margin-bottom:10px;"></h3>`;
   let lastDate = "";
 
   list.forEach(s => {
