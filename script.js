@@ -405,7 +405,8 @@ async function startSessionAuthAware(payload) {
 // (Optional) Show teacher's sessions so they don't copy IDs manually
 async function loadMySessions() {
   const box = document.getElementById("mySessions");
-  if (!box) return; // not placed in the HTML -> skip
+  if (!box) return;
+
   const token = getToken();
   if (!token) {
     box.innerHTML = `<p style="color:#666">Login to see your sessions.</p>`;
@@ -413,11 +414,12 @@ async function loadMySessions() {
   }
 
   const res = await fetch(`${BASE_URL}/api/teacher/sessions`, {
-    headers: { "Authorization": `Bearer ${token}` }
+    headers: { Authorization: `Bearer ${token}` }
   });
+
   const data = await res.json();
   if (!data.success) {
-    box.innerHTML = `<p style="color:#c00">Failed to load your sessions.</p>`;
+    box.innerHTML = `<p style="color:#c00">Failed to load sessions.</p>`;
     return;
   }
 
@@ -427,30 +429,60 @@ async function loadMySessions() {
     return;
   }
 
-  let html = `<h4>Your Recent Sessions</h4><ul style="list-style:none;padding-left:0">`;
+  // Ensure sessions sorted latest first
+  list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+  let html = `<h3 style="color:#667eea;margin-bottom:10px;">📚 Your Sessions</h3>`;
+  let lastDate = "";
+
   list.forEach(s => {
-  html += `
-    <li style="margin:8px 0; display:flex; justify-content:space-between; align-items:center;">
-      
-      <div>
-        <strong>
-          ${s.subject} 
-          ${s.className ? s.className : ""} 
-          ${s.section ? s.section : ""}
-        </strong> 
-        – ${s.topic}
-      </div>
+    const date = new Date(s.createdAt);
+    const dateStr = date.toLocaleDateString();
 
-      <div>
-        <code>${s.sessionId}</code>
-        <button style="margin-left:8px" onclick="quickAnalytics('${s.sessionId}')">
-          View Analytics
-        </button>
-      </div>
+    const timeStr = date.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit"
+    });
 
-    </li>`;
-});
-  html += `</ul>`;
+    // Group by date
+    if (dateStr !== lastDate) {
+      html += `
+        <h4 style="margin-top:20px;margin-bottom:8px;color:#555;">
+          📅 ${dateStr}
+        </h4>`;
+      lastDate = dateStr;
+    }
+
+    html += `
+      <div style="
+        padding:12px;
+        background:#f7f9ff;
+        border-left:5px solid #667eea;
+        border-radius:8px;
+        margin-bottom:10px;
+      ">
+        <div style="font-weight:bold;font-size:15px;">
+          ${s.className || ""} ${s.section || ""} — ${s.subject}
+        </div>
+
+        <div style="margin-top:2px;">📝 Topic: ${s.topic}</div>
+        <div style="margin-top:2px;">⏰ Time: ${timeStr}</div>
+
+        <div style="margin-top:5px;">
+          <code>${s.sessionId}</code>
+          <button style="
+            margin-left:8px;
+            padding:3px 8px;
+            border-radius:5px;
+          " 
+          onclick="quickAnalytics('${s.sessionId}')">
+            View Analytics
+          </button>
+        </div>
+      </div>
+    `;
+  });
+
   box.innerHTML = html;
 }
 
