@@ -28,10 +28,6 @@ function switchTab(tabName, btnEl = null) {
 async function startSession() {
   const subject = document.getElementById("subject").value;
   let teacher = document.getElementById("teacher").value;
-if (!teacher) {
-   const storedUser = JSON.parse(localStorage.getItem("teacherUser") || "{}");
-   teacher = storedUser.name || teacher;
-}
   const topic = document.getElementById("topic").value;
   const className = document.getElementById("className") 
     ? document.getElementById("className").value.trim() 
@@ -489,12 +485,14 @@ function updateTeacherUI() {
     authSection.style.display = "none";
     dashboard.style.display = "block";
 
-    // 🟢 Auto-fill teacher name after login
+    // 🟢 Only auto-fill teacher name after login
     const storedUser = JSON.parse(localStorage.getItem("teacherUser") || "{}");
-    
+
     if (storedUser.name) {
       const teacherInput = document.getElementById("teacher");
-      if (teacherInput) teacherInput.value = storedUser.name;
+      if (teacherInput) {
+        teacherInput.value = storedUser.name;  // Auto-fill ONLY teacher name
+      }
     }
 
     loadMySessions();
@@ -520,13 +518,7 @@ window.onload = function () {
   const className = url.searchParams.get('class');
   const section = url.searchParams.get('section');
   const subject = url.searchParams.get('subject');
-  let teacherName = url.searchParams.get('teacher');
-
-// FIX: If teacher missing in URL, use logged-in teacher name
-if (!teacherName || teacherName === "undefined") {
-    const storedUser = JSON.parse(localStorage.getItem("teacherUser") || "{}");
-    teacherName = storedUser.name || "N/A";
-}
+  let teacherName = url.searchParams.get('teacher') || "N/A";
   const topic = url.searchParams.get("topic");
 
 
@@ -624,10 +616,11 @@ function selectSavedClass() {
   const selected = dropdown.value;
   if (!selected) return;
 
-  const { className, subject, teacher } = JSON.parse(selected);
-  document.getElementById("className").value = className;
-  document.getElementById("subject").value = subject;
-  document.getElementById("teacher").value = teacher;
+  // Only load teacher name from login
+  const storedUser = JSON.parse(localStorage.getItem("teacherUser") || "{}");
+  if (storedUser.name) {
+    document.getElementById("teacher").value = storedUser.name;
+  }
 }
 
 // ====================
