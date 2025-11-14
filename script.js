@@ -48,7 +48,13 @@ if (!teacher) {
 
   try {
     // 🔹 Uses auth route if logged in, public route otherwise
-    const data = await startSessionAuthAware({ subject, teacher, topic });
+    const data = await startSessionAuthAware({
+  subject,
+  teacher,
+  topic,
+  className,
+  section
+});
 
     if (data.success) {
       const sessionId = data.sessionId;
@@ -423,13 +429,27 @@ async function loadMySessions() {
 
   let html = `<h4>Your Recent Sessions</h4><ul style="list-style:none;padding-left:0">`;
   list.forEach(s => {
-    html += `
-      <li style="margin:8px 0">
-        <strong>${s.subject}</strong> – ${s.topic}
-        <code style="margin-left:6px">${s.sessionId}</code>
-        <button style="margin-left:8px" onclick="quickAnalytics('${s.sessionId}')">View Analytics</button>
-      </li>`;
-  });
+  html += `
+    <li style="margin:8px 0; display:flex; justify-content:space-between; align-items:center;">
+      
+      <div>
+        <strong>
+          ${s.subject} 
+          ${s.className ? s.className : ""} 
+          ${s.section ? s.section : ""}
+        </strong> 
+        – ${s.topic}
+      </div>
+
+      <div>
+        <code>${s.sessionId}</code>
+        <button style="margin-left:8px" onclick="quickAnalytics('${s.sessionId}')">
+          View Analytics
+        </button>
+      </div>
+
+    </li>`;
+});
   html += `</ul>`;
   box.innerHTML = html;
 }

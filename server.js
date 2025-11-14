@@ -44,15 +44,18 @@ function auth(req, res, next) {
   }
 }
 
-// ====== Schemas ======
+// ====== update session schema to include className + section ======
 const sessionSchema = new mongoose.Schema({
   sessionId: String,        // short code
   subject: String,
   teacher: String,          // teacher display name
   topic: String,
   createdAt: { type: Date, default: Date.now },
-  // ADDED
   teacherId: { type: mongoose.Schema.Types.ObjectId, ref: "Teacher", default: null },
+
+  // NEW fields
+  className: { type: String, default: "" },
+  section: { type: String, default: "" },
 });
 
 const feedbackSchema = new mongoose.Schema({
@@ -123,13 +126,13 @@ app.post("/api/teacher/login", async (req, res) => {
 
 // ====== ORIGINAL ROUTES (unchanged) ======
 
-// Create new feedback session (kept for backward compatibility)
 // NOTE: this keeps using UUID; front-end can continue to use it if desired.
+// Create new feedback session (public, kept for backward compatibility)
 app.post("/api/session/start", async (req, res) => {
   try {
-    const { subject, teacher, topic } = req.body;
+    const { subject, teacher, topic, className = "", section = "" } = req.body;
     const sessionId = uuidv4();
-    const newSession = new Session({ sessionId, subject, teacher, topic });
+    const newSession = new Session({ sessionId, subject, teacher, topic, className, section });
     await newSession.save();
     res.json({ success: true, sessionId });
   } catch (err) {
@@ -138,16 +141,18 @@ app.post("/api/session/start", async (req, res) => {
   }
 });
 
-// ADDED: Auth-protected start (uses short sessionId + ties to teacher)
+// Auth-protected start (uses short sessionId + ties to teacher)
 app.post("/api/session/start-auth", auth, async (req, res) => {
   try {
-    const { subject, teacher, topic } = req.body;
+    const { subject, teacher, topic, className = "", section = "" } = req.body;
     const sessionId = generateSessionId();
     const newSession = new Session({
       sessionId,
       subject,
       teacher,
       topic,
+      className,
+      section,
       teacherId: req.teacherId,
     });
     await newSession.save();
