@@ -28,6 +28,11 @@ function switchTab(tabName, btnEl = null) {
 async function startSession() {
   const subject = document.getElementById("subject").value;
   let teacher = document.getElementById("teacher").value;
+
+if (!teacher) {
+   const storedUser = JSON.parse(localStorage.getItem("teacherUser") || "{}");
+   teacher = storedUser.name || teacher;
+}
   const topic = document.getElementById("topic").value;
   const className = document.getElementById("className") 
     ? document.getElementById("className").value.trim() 
@@ -485,15 +490,10 @@ function updateTeacherUI() {
     authSection.style.display = "none";
     dashboard.style.display = "block";
 
-    // 🟢 Only auto-fill teacher name after login
-    const storedUser = JSON.parse(localStorage.getItem("teacherUser") || "{}");
-
-    if (storedUser.name) {
-      const teacherInput = document.getElementById("teacher");
-      if (teacherInput) {
-        teacherInput.value = storedUser.name;  // Auto-fill ONLY teacher name
-      }
-    }
+    // Auto-fill AFTER dashboard becomes visible
+    setTimeout(() => {
+      autofillTeacherName();
+    }, 50);
 
     loadMySessions();
   } else {
@@ -679,3 +679,11 @@ async function startQuickSession() {
 window.addEventListener("load", () => {
   loadSavedClasses();
 });
+
+function autofillTeacherName() {
+  const storedUser = JSON.parse(localStorage.getItem("teacherUser") || "{}");
+  const input = document.getElementById("teacher");
+  if (input && storedUser.name) {
+    input.value = storedUser.name;
+  }
+}
