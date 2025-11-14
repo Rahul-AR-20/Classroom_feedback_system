@@ -563,6 +563,8 @@ window.onload = function () {
 `;
     }
   }
+  // ⬇⬇ ADD THIS LINE HERE ⬇⬇
+setTimeout(() => autofillTeacherName(), 100);
 };
 
 
