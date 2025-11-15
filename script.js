@@ -696,7 +696,7 @@ function autofillTeacherName() {
    =========================== */
 
 const LOGO_BASE64 = ""; // optional base64 string
-const LOGO_PATH = "logo.png"; // recommended to put logo.png at project root
+const LOGO_PATH = "logo.jpg"; // recommended to put logo.jpg at project root
 
 function summarizeComments(comments, maxKeywords = 6) {
   if (!comments || comments.length === 0) {
@@ -741,17 +741,17 @@ async function captureCanvasAsImage(canvasId) {
   const canvas = document.getElementById(canvasId);
   if (!canvas) return null;
   try {
-    return canvas.toDataURL("image/png", 1.0);
+    return canvas.toDataURL("image/jpeg", 1.0);
   } catch (e) {
     const c = await html2canvas(canvas);
-    return c.toDataURL("image/png", 1.0);
+    return c.toDataURL("image/jpeg", 1.0);
   }
 }
 
 async function loadLogoDataURL() {
   if (LOGO_BASE64 && LOGO_BASE64.length > 100) {
     if (LOGO_BASE64.startsWith("data:")) return LOGO_BASE64;
-    return "data:image/png;base64," + LOGO_BASE64;
+    return "data:image/jpeg;base64," + LOGO_BASE64;
   }
   try {
     const resp = await fetch(LOGO_PATH);
@@ -796,7 +796,7 @@ async function generatePDFReport() {
       const imgProps = pdf.getImageProperties(logoData);
       const imgW = 72;
       const imgH = (imgProps.height * imgW) / imgProps.width;
-      pdf.addImage(logoData, "PNG", margin, y, imgW, imgH);
+      pdf.addImage(logoData, "JPEG", margin, y, imgW, imgH);
       pdf.setFontSize(14);
       pdf.text("Bangalore Institute of Technology", margin + imgW + 12, y + 18);
       pdf.setFontSize(10);
