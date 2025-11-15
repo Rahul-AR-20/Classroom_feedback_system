@@ -743,7 +743,7 @@ async function captureCanvasAsImage(canvasId) {
   try {
     return canvas.toDataURL("image/jpeg", 1.0);
   } catch (e) {
-    const c = await html2canvas(canvas);
+    const c = await html2canvas(canvas, { backgroundColor: "#ffffff" });
     return c.toDataURL("image/jpeg", 1.0);
   }
 }
@@ -840,14 +840,14 @@ async function generatePDFReport() {
     const halfWidth = (availableWidth - 12) / 2;
 
     if (ratingImg) {
-      pdf.addImage(ratingImg, "PNG", margin, y, halfWidth, halfWidth * 0.7);
+      pdf.addImage(ratingImg, "jpeg", margin, y, halfWidth, halfWidth * 0.7);
     } else {
       pdf.rect(margin, y, halfWidth, halfWidth * 0.7);
       pdf.text("Rating distribution chart unavailable", margin + 6, y + 20);
     }
 
     if (trendImg) {
-      pdf.addImage(trendImg, "PNG", margin + halfWidth + 12, y, halfWidth, halfWidth * 0.7);
+      pdf.addImage(trendImg, "jpeg", margin + halfWidth + 12, y, halfWidth, halfWidth * 0.7);
     } else {
       pdf.rect(margin + halfWidth + 12, y, halfWidth, halfWidth * 0.7);
       pdf.text("Trend chart unavailable", margin + halfWidth + 20, y + 20);
