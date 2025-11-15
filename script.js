@@ -741,16 +741,26 @@ async function captureCanvasAsImage(canvasId) {
   const canvas = document.getElementById(canvasId);
   if (!canvas) return null;
 
-  try {
-    return canvas.toDataURL("image/jpeg", 1.0);
-  } catch (e) {
-    const c = await html2canvas(canvas, {
-      backgroundColor: "#ffffff" // FIX black background
-    });
-    return c.toDataURL("image/jpeg", 1.0);
-  }
-}
+  // --- Force white background on Chart.js canvas ---
+  const ctx = canvas.getContext("2d");
+  const w = canvas.width;
+  const h = canvas.height;
 
+  const temp = document.createElement("canvas");
+  temp.width = w;
+  temp.height = h;
+  const tctx = temp.getContext("2d");
+
+  // Fill with white
+  tctx.fillStyle = "#ffffff";
+  tctx.fillRect(0, 0, w, h);
+
+  // Draw original chart on top
+  tctx.drawImage(canvas, 0, 0);
+
+  // Export as normal image
+  return temp.toDataURL("image/jpeg", 1.0);
+}
 async function loadLogoDataURL() {
   if (LOGO_BASE64 && LOGO_BASE64.length > 100) {
     if (LOGO_BASE64.startsWith("data:")) return LOGO_BASE64;
