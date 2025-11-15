@@ -9,6 +9,10 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
 
+  <!-- PDF libraries (for download) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
   <!-- Custom Styles -->
   <link rel="stylesheet" href="styles.css"/>
 </head>
@@ -103,8 +107,6 @@
   </div>
 </div>
 
-
-
     <div class="card" style="margin-top: 20px;">
       <h3>🧾 My Sessions</h3>
       <div id="mySessions">
@@ -156,9 +158,12 @@
       <!-- Analytics -->
       <div id="analytics" class="tab-pane">
         <h2 style="text-align:center;color:#667eea;margin-bottom:30px;">📈 Historical Analytics</h2>
+        <div id="analyticsSummary"></div> 
         <div class="form-group" style="text-align:center;">
           <input type="text" id="analyticsSessionId" class="form-control" placeholder="Enter Session ID"/>
           <button class="btn btn-primary" onclick="loadAnalytics()">View Analytics</button>
+          <!-- Download button -->
+          <button class="btn btn-outline-primary" id="downloadReportBtn" onclick="generatePDFReport()">📥 Download Report</button>
         </div>
         
         <div class="stats-grid">
@@ -189,14 +194,5 @@
   <!-- Custom JavaScript -->
   <script src="script.js"></script>
 
-  <!-- <script>
-    window.onload = () => {
-      const params = new URLSearchParams(window.location.search);
-      if (params.has("sessionId")) {
-        document.getElementById("sessionInput").value = params.get("sessionId");
-        showFeedbackForm();
-      }
-    };
-  </script> -->
 </body>
 </html>

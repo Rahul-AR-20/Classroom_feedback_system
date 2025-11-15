@@ -4,3 +4,5 @@
 # Explicitly ignore env variants
 /.env
 .env.*
+
+logo.png
