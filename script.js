@@ -430,10 +430,19 @@ async function loadMySessions() {
         </div>
         <div style="margin-top:2px;">📝 Topic: ${s.topic}</div>
         <div style="margin-top:2px;">⏰ Time: ${timeStr}</div>
-        <div style="margin-top:5px;">
-          <code>${s.sessionId}</code>
-          <button style="margin-left:8px;padding:6px 10px;border-radius:5px;" onclick="quickAnalytics('${s.sessionId}')">View Analytics</button>
-        </div>
+        <div style="margin-top:5px; display:flex; gap:10px; align-items:center;">
+  <code>${s.sessionId}</code>
+
+  <button style="padding:6px 10px;border-radius:5px;"
+          onclick="quickAnalytics('${s.sessionId}')">
+    View Analytics
+  </button>
+
+  <button style="padding:6px 10px;border-radius:5px;background:#0A84FF;color:white;border:none;"
+          onclick="downloadReport('${s.sessionId}')">
+    Download Report
+  </button>
+</div>
       </div>
     `;
   });
@@ -687,7 +696,7 @@ function autofillTeacherName() {
    =========================== */
 
 const LOGO_BASE64 = ""; // optional base64 string
-const LOGO_PATH = "/logo.png"; // recommended to put logo.png at project root
+const LOGO_PATH = "logo.png"; // recommended to put logo.png at project root
 
 function summarizeComments(comments, maxKeywords = 6) {
   if (!comments || comments.length === 0) {
@@ -722,7 +731,7 @@ function summarizeComments(comments, maxKeywords = 6) {
     if (score > best.score) best = { score, sentence: s };
   });
 
-  const summaryOneLine = `Top themes: ${keywords.slice(0,3).join(", ") || "General feedback"} — e.g. "${(best.sentence || "").slice(0,120)}${(best.sentence && best.sentence.length>120) ? "..." : ""}"`;
+  const summaryOneLine = `Summary: "${(best.sentence || "").slice(0,120)}${(best.sentence && best.sentence.length>120 ? "..." : "")}"`;
   const sampleComments = comments.slice(0, 8);
 
   return { summaryOneLine, topKeywords: keywords, sampleComments };
@@ -854,12 +863,6 @@ async function generatePDFReport() {
     pdf.text(summaryLines, margin, y);
     y += summaryLines.length * 12 + 8;
 
-    if (summary.topKeywords && summary.topKeywords.length) {
-      pdf.setFont("helvetica", "italic");
-      pdf.text("Top keywords: " + summary.topKeywords.join(", "), margin, y);
-      pdf.setFont("helvetica", "normal");
-      y += 14;
-    }
 
     if (summary.sampleComments && summary.sampleComments.length) {
       pdf.setFont("helvetica", "bold");
@@ -913,4 +916,10 @@ async function generatePDFReport() {
     console.error("PDF generation error:", err);
     alert("Failed to generate PDF. See console for details.");
   }
+}
+
+async function downloadReport(sessionId) {
+  document.getElementById("analyticsSessionId").value = sessionId;
+  await loadAnalytics();
+  generatePDFReport();
 }
