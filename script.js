@@ -196,6 +196,23 @@ async function loadAnalytics() {
     const data = await res.json();
 
     if (data.totalResponses !== undefined) {
+
+      /* -----------------------------------------
+         1) UPDATE TOTAL SESSIONS (NEW)
+      ------------------------------------------ */
+      const token = getToken();
+      if (token) {
+        const sRes = await fetch(`${BASE_URL}/api/teacher/sessions`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const sData = await sRes.json();
+        if (sData.success) {
+          document.getElementById("totalSessions").textContent =
+            sData.sessions.length;
+        }
+      }
+      /* ----------------------------------------- */
+
       // Update stats numbers
       document.getElementById("totalStudentResponses").textContent = data.totalResponses;
       document.getElementById("avgSessionRating").textContent = (data.avgRating || 0).toFixed(1);
@@ -206,14 +223,6 @@ async function loadAnalytics() {
       
       // Show feedback comments
       displayFeedbackComments(data.feedbacks);
-
-      // Small analytics summary
-      // document.getElementById("analyticsSummary").innerHTML =
-      //   `<div style="text-align:center;margin-bottom:8px;">
-      //      <strong>Session:</strong> ${sessionId} &nbsp; • &nbsp;
-      //      <strong>Responses:</strong> ${data.totalResponses} &nbsp; • &nbsp;
-      //      <strong>Avg:</strong> ${(data.avgRating||0).toFixed(1)}
-      //    </div>`;
 
     } else {
       alert("No data found for this session ID!");
