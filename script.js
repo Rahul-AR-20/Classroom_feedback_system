@@ -208,12 +208,12 @@ async function loadAnalytics() {
       displayFeedbackComments(data.feedbacks);
 
       // Small analytics summary
-      document.getElementById("analyticsSummary").innerHTML =
-        `<div style="text-align:center;margin-bottom:8px;">
-           <strong>Session:</strong> ${sessionId} &nbsp; • &nbsp;
-           <strong>Responses:</strong> ${data.totalResponses} &nbsp; • &nbsp;
-           <strong>Avg:</strong> ${(data.avgRating||0).toFixed(1)}
-         </div>`;
+      // document.getElementById("analyticsSummary").innerHTML =
+      //   `<div style="text-align:center;margin-bottom:8px;">
+      //      <strong>Session:</strong> ${sessionId} &nbsp; • &nbsp;
+      //      <strong>Responses:</strong> ${data.totalResponses} &nbsp; • &nbsp;
+      //      <strong>Avg:</strong> ${(data.avgRating||0).toFixed(1)}
+      //    </div>`;
 
     } else {
       alert("No data found for this session ID!");
@@ -305,25 +305,36 @@ function createRatingTrendChart(feedbacks) {
 // Display Feedback Comments
 function displayFeedbackComments(feedbacks) {
   const commentsContainer = document.getElementById('feedbackComments');
-  const comments = feedbacks.filter(fb => fb.comment && fb.comment.trim() !== '');
-  
+  const comments = feedbacks
+    .map(fb => fb.comment)
+    .filter(c => c && c.trim().length > 0);
+
   if (comments.length === 0) {
-    commentsContainer.innerHTML = '<p style="text-align:center;color:#666;padding:20px;">No comments yet</p>';
+    commentsContainer.innerHTML =
+      '<p style="text-align:center;color:#666;padding:20px;">No comments yet</p>';
     return;
   }
 
-  // Show a few and allow download for full
-  let html = '<h4 style="color:#667eea;margin-bottom:15px;">Student Comments (sample):</h4>';
-  comments.slice(0, 8).forEach((fb, i) => {
-    const time = new Date(fb.createdAt).toLocaleTimeString();
+  // FIXED: Use correct summarizer
+  const summary = summarizeComments(comments);
+
+  let html = `
+    <h4 style="color:#667eea;margin-bottom:10px;">🧠 Summary of Student Feedback</h4>
+    <div style="background:#f0f4ff;padding:12px;border-radius:8px;margin-bottom:20px;">
+      ${summary.summaryOneLine}
+    </div>
+
+    <h4 style="color:#667eea;margin-bottom:10px;">Student Comments (sample):</h4>
+  `;
+
+  summary.sampleComments.forEach((c, i) => {
     html += `
-      <div class="comment-item" style="padding:8px;border-bottom:1px solid #eee;">
-        <div style="font-weight:600;">${'⭐'.repeat(fb.rating)}</div>
-        <div style="margin-top:6px;">"${fb.comment}"</div>
-        <div style="color:#888;font-size:12px;margin-top:6px;">${time}</div>
+      <div style="padding:8px;border-bottom:1px solid #eee;">
+        "${c}"
       </div>
     `;
   });
+
   commentsContainer.innerHTML = html;
 }
 
@@ -698,43 +709,52 @@ function autofillTeacherName() {
 const LOGO_BASE64 = ""; // optional base64 string
 const LOGO_PATH = "logo.jpeg"; // recommended to put logo.jpg at project root
 
-function summarizeComments(comments, maxKeywords = 6) {
+function summarizeComments(comments) {
   if (!comments || comments.length === 0) {
-    return { summaryOneLine: "No comments to summarize.", topKeywords: [], sampleComments: [] };
+    return {
+      summaryOneLine: "No comments to summarize.",
+      sampleComments: []
+    };
   }
 
-  const stopwords = new Set([
-    "the","and","is","in","to","of","a","i","was","for","with","that","this","it","on","are","as","we","be","have","has","but","so","not","at","by"
-  ]);
+  const text = comments.join(" ").toLowerCase();
 
-  const freq = {};
-  const sentences = [];
+  let issues = [];
+  let positives = [];
 
-  comments.forEach(c => {
-    const s = (c || "").trim();
-    if (!s) return;
-    sentences.push(s);
-    s.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).forEach(w => {
-      if (!w || w.length < 3) return;
-      if (stopwords.has(w)) return;
-      freq[w] = (freq[w] || 0) + 1;
-    });
-  });
+  if (/not understand|confus|difficult|hard|unclear/.test(text)) {
+    issues.push("many students found the explanation unclear");
+  }
 
-  const keywords = Object.keys(freq).sort((a,b) => freq[b]-freq[a]).slice(0, maxKeywords);
+  if (/fast|quick|speed/.test(text)) {
+    issues.push("some students felt the class was too fast");
+  }
 
-  let best = { score: -1, sentence: sentences[0] || "" };
-  sentences.forEach(s => {
-    const sLower = s.toLowerCase();
-    let score = 0;
-    keywords.forEach(k => { if (sLower.includes(k)) score += freq[k]; });
-    if (score > best.score) best = { score, sentence: s };
-  });
+  if (/slow|boring/.test(text)) {
+    issues.push("a few students felt the session was slow or less engaging");
+  }
 
-  const summaryOneLine = `Summary: "${(best.sentence || "").slice(0,120)}${(best.sentence && best.sentence.length>120 ? "..." : "")}"`;
-  const sampleComments = comments.slice(0, 8);
+  if (/example|examples|real world/.test(text)) {
+    issues.push("students requested more examples");
+  }
 
-  return { summaryOneLine, topKeywords: keywords, sampleComments };
+  if (/good|clear|well explained|helpful|awesome|great/.test(text)) {
+    positives.push("students appreciated the teaching quality");
+  }
+
+  let summary = "";
+
+  if (positives.length) summary += positives.join(", ") + ". ";
+  if (issues.length) summary += "However, " + issues.join(", ") + ".";
+
+  if (!summary.trim()) {
+    summary = "Students gave mixed comments without a clear pattern.";
+  }
+
+  return {
+    summaryOneLine: summary,
+    sampleComments: comments.slice(0, 8)
+  };
 }
 
 async function captureCanvasAsImage(canvasId) {
