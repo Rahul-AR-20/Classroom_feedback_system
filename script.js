@@ -919,7 +919,11 @@ async function generatePDFReport() {
 }
 
 async function downloadReport(sessionId) {
+  switchTab('analytics');                      // show charts on screen
   document.getElementById("analyticsSessionId").value = sessionId;
-  await loadAnalytics();
-  generatePDFReport();
+  
+  await loadAnalytics();                       // draw charts
+  await new Promise(r => setTimeout(r, 800));  // wait for canvas render
+  
+  generatePDFReport();                         // capture + export
 }

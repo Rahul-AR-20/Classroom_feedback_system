@@ -529,3 +529,20 @@ body {
 #mySessions li button:hover {
   background: #1d4ed8;
 }
+
+.tab-pane {
+  display: none;
+  visibility: hidden;
+  height: 0;
+}
+
+.tab-pane.active {
+  display: block;
+  visibility: visible;
+  height: auto;
+}
+
+canvas {
+  width: 100% !important;
+  height: 300px !important;
+}

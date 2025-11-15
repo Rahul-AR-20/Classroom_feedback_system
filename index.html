@@ -163,7 +163,10 @@
           <input type="text" id="analyticsSessionId" class="form-control" placeholder="Enter Session ID"/>
           <button class="btn btn-primary" onclick="loadAnalytics()">View Analytics</button>
           <!-- Download button -->
-          <button class="btn btn-outline-primary" id="downloadReportBtn" onclick="generatePDFReport()">📥 Download Report</button>
+          <button class="btn btn-outline-primary" id="downloadReportBtn"
+        onclick="downloadReport(document.getElementById('analyticsSessionId').value)">
+📥 Download Report
+</button>
         </div>
         
         <div class="stats-grid">
