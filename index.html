@@ -45,14 +45,26 @@
       <input id="authEmail" type="email" class="form-control" placeholder="Email" />
     </div>
     <div class="form-group">
-      <div style="position: relative;">
-  <input id="authPass" type="password" class="form-control" placeholder="Password" />
-  <span onclick="togglePassword()" 
-        style="position:absolute; right:10px; top:50%; transform:translateY(-50%); cursor:pointer;">
-    👁️
-  </span>
+  <div style="position: relative;">
+    <input id="authPass" type="password" class="form-control" placeholder="Password" />
+
+    <span onclick="togglePassword()" id="toggleIcon"
+      style="position:absolute; right:10px; top:50%; transform:translateY(-50%); cursor:pointer; color:#444;">
+      <!-- Eye Icon -->
+      <svg id="eyeOpen" xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 16 16">
+        <path d="M8 3c-4.5 0-8 4.5-8 5s3.5 5 8 5 8-4.5 8-5-3.5-5-8-5z"/>
+        <path d="M8 5.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5z"/>
+      </svg>
+
+      <!-- Eye Slash (hidden by default) -->
+      <svg id="eyeClosed" xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor"
+           viewBox="0 0 16 16" style="display:none;">
+        <path d="M13.359 11.238C14.47 10.184 15 9.222 15 8c0-1.222-.53-2.184-1.641-3.238C12.142 3.62 10.213 2.5 8 2.5c-1.132 0-2.221.225-3.21.63l8.569 8.108z"/>
+        <path d="M2.97 3.97l9.06 9.06-1.414 1.414L1.556 5.384 2.97 3.97z"/>
+      </svg>
+    </span>
+  </div>
 </div>
-    </div>
     <div style="display: flex; gap: 8px; flex-wrap: wrap;">
       <button class="btn btn-success" onclick="doSignup()">Sign Up</button>
       <button class="btn btn-info" onclick="doLogin()">Login</button>
@@ -87,10 +99,7 @@
     <input type="text" id="subject" class="form-control" placeholder="e.g., Mathematics" />
   </div>
 
-  <div class="form-group">
-  <label for="teacher">Teacher Name</label>
-  <input type="text" id="teacher" class="form-control" placeholder="Auto-filled after login" disabled />
-</div>
+  <input type="hidden" id="teacher" />
 
   <div class="form-group">
     <label for="topic">Today's Topic</label>

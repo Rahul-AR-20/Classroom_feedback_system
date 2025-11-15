@@ -989,5 +989,16 @@ async function downloadReport(sessionId) {
 
 function togglePassword() {
   const pass = document.getElementById("authPass");
-  pass.type = pass.type === "password" ? "text" : "password";
+  const open = document.getElementById("eyeOpen");
+  const closed = document.getElementById("eyeClosed");
+
+  if (pass.type === "password") {
+    pass.type = "text";
+    open.style.display = "none";
+    closed.style.display = "block";
+  } else {
+    pass.type = "password";
+    open.style.display = "block";
+    closed.style.display = "none";
+  }
 }
