@@ -740,10 +740,13 @@ function summarizeComments(comments, maxKeywords = 6) {
 async function captureCanvasAsImage(canvasId) {
   const canvas = document.getElementById(canvasId);
   if (!canvas) return null;
+
   try {
     return canvas.toDataURL("image/jpeg", 1.0);
   } catch (e) {
-    const c = await html2canvas(canvas, { backgroundColor: "#ffffff" });
+    const c = await html2canvas(canvas, {
+      backgroundColor: "#ffffff" // FIX black background
+    });
     return c.toDataURL("image/jpeg", 1.0);
   }
 }
@@ -821,16 +824,24 @@ async function generatePDFReport() {
     pdf.setFont("helvetica", "normal");
 
     // read feedbackDetails if present
-    const detailsHtml = document.getElementById("feedbackDetails")?.innerText || "";
-    const metaLines = detailsHtml.split("\n").map(l => l.trim()).filter(Boolean);
-    let metaY = y + 16;
-    metaLines.forEach(line => {
-      pdf.text(line, margin, metaY);
-      metaY += 12;
-    });
+    const className = data.className || "N/A";
+const section   = data.section || "N/A";
+const subject   = data.subject || "N/A";
+const teacher   = data.teacher || "N/A";
+const topic     = data.topic || "N/A";
 
-    y = metaY + 8;
+// Add metadata to PDF
+pdf.setFont("helvetica", "normal");
+pdf.setFontSize(11);
 
+pdf.text(`Class: ${className} (${section})`, margin, y);
+pdf.text(`Teacher: ${teacher}`, margin + 250, y);
+y += 14;
+pdf.text(`Subject: ${subject}`, margin, y);
+pdf.text(`Topic: ${topic}`, margin + 250, y);
+y += 20;
+
+    
     pdf.setFont("helvetica", "bold");
     pdf.text(`Total responses: ${data.totalResponses}`, margin, y);
     pdf.text(`Average rating: ${data.avgRating ? data.avgRating.toFixed(1) : "N/A"}`, margin + 200, y);
