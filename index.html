@@ -45,7 +45,13 @@
       <input id="authEmail" type="email" class="form-control" placeholder="Email" />
     </div>
     <div class="form-group">
-      <input id="authPass" type="password" class="form-control" placeholder="Password" />
+      <div style="position: relative;">
+  <input id="authPass" type="password" class="form-control" placeholder="Password" />
+  <span onclick="togglePassword()" 
+        style="position:absolute; right:10px; top:50%; transform:translateY(-50%); cursor:pointer;">
+    👁️
+  </span>
+</div>
     </div>
     <div style="display: flex; gap: 8px; flex-wrap: wrap;">
       <button class="btn btn-success" onclick="doSignup()">Sign Up</button>
@@ -82,9 +88,9 @@
   </div>
 
   <div class="form-group">
-    <label for="teacher">Teacher Name</label>
-    <input type="text" id="teacher" class="form-control" placeholder="Your name" />
-  </div>
+  <label for="teacher">Teacher Name</label>
+  <input type="text" id="teacher" class="form-control" placeholder="Auto-filled after login" disabled />
+</div>
 
   <div class="form-group">
     <label for="topic">Today's Topic</label>

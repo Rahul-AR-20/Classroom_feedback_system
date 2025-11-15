@@ -27,7 +27,9 @@ function switchTab(tabName, btnEl = null) {
 // Start Feedback Session (manual start)
 async function startSession() {
   const subject = document.getElementById("subject").value;
-  let teacher = document.getElementById("teacher").value;
+  let teacher = "";
+const storedUser = JSON.parse(localStorage.getItem("teacherUser") || "{}");
+teacher = storedUser.name || "Unknown";
 
   if (!teacher) {
     const storedUser = JSON.parse(localStorage.getItem("teacherUser") || "{}");
@@ -500,11 +502,18 @@ async function doLogin() {
   const password = document.getElementById('authPass')?.value;
 
   if (!email || !password) return alert("Fill email and password");
+
   const res = await loginTeacher(email, password);
 
   if (res.success) {
     setToken(res.token);
-    localStorage.setItem("teacherUser", JSON.stringify(res.user));
+
+    // FIX: save teacher details properly
+    localStorage.setItem("teacherUser", JSON.stringify({
+      name: res.user.name,
+      email: res.user.email
+    }));
+
     alert("Login successful!");
     updateTeacherUI();
   } else {
@@ -976,4 +985,9 @@ async function downloadReport(sessionId) {
   await new Promise(r => setTimeout(r, 800));  // wait for canvas render
   
   generatePDFReport();                         // capture + export
+}
+
+function togglePassword() {
+  const pass = document.getElementById("authPass");
+  pass.type = pass.type === "password" ? "text" : "password";
 }
