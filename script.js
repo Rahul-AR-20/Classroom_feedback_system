@@ -818,25 +818,25 @@ async function generatePDFReport() {
     pdf.line(margin, y, pageWidth - margin, y);
     y += 12;
 
-    pdf.setFontSize(11);
-    pdf.setFont("helvetica", "bold");
-    pdf.text(`Session: ${sessionId}`, margin, y);
-    pdf.setFont("helvetica", "normal");
-
-    // read feedbackDetails if present
-    const className = data.className || "N/A";
+// SESSION HEADER META FIXED
+const className = data.className || "N/A";
 const section   = data.section || "N/A";
 const subject   = data.subject || "N/A";
 const teacher   = data.teacher || "N/A";
-const topic     = data.topic || "N/A";
+const topic     = data.topic   || "N/A";
 
-// Add metadata to PDF
-pdf.setFont("helvetica", "normal");
+// SESSION HEADER
 pdf.setFontSize(11);
+pdf.setFont("helvetica", "bold");
+pdf.text(`Session ID: ${sessionId}`, margin, y);
+y += 14;
 
+// CLASS META
+pdf.setFont("helvetica", "normal");
 pdf.text(`Class: ${className} (${section})`, margin, y);
 pdf.text(`Teacher: ${teacher}`, margin + 250, y);
 y += 14;
+
 pdf.text(`Subject: ${subject}`, margin, y);
 pdf.text(`Topic: ${topic}`, margin + 250, y);
 y += 20;

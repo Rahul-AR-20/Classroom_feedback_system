@@ -176,10 +176,19 @@ app.post("/api/feedback/submit", async (req, res) => {
   }
 });
 
-// Analytics route — NOW with AUTO COMMENT SUMMARY
+// Analytics route — FULL DETAILS + NO SUMMARY AUTO-GENERATION
 app.get("/api/analytics/:sessionId", async (req, res) => {
   try {
     const { sessionId } = req.params;
+
+    // Fetch session details (class, subject, teacher, topic, section)
+    const session = await Session.findOne({ sessionId });
+
+    if (!session) {
+      return res.json({ success: false, message: "Session not found" });
+    }
+
+    // Fetch all feedbacks for this session
     const feedbacks = await Feedback.find({ sessionId });
 
     const totalResponses = feedbacks.length;
@@ -188,34 +197,20 @@ app.get("/api/analytics/:sessionId", async (req, res) => {
         ? 0
         : feedbacks.reduce((acc, f) => acc + f.rating, 0) / totalResponses;
 
-    // ====== AUTO COMMENT SUMMARY ======
-    const comments = feedbacks
-      .map(f => f.comment)
-      .filter(c => c && c.trim());
+    // Return EVERYTHING needed for the PDF
+    res.json({
+      success: true,
+      sessionId,
+      className: session.className || "",
+      section: session.section || "",
+      subject: session.subject || "",
+      teacher: session.teacher || "",
+      topic: session.topic || "",
+      totalResponses,
+      avgRating,
+      feedbacks
+    });
 
-    let summary = "Not enough comments to generate a summary.";
-
-    if (comments.length >= 5) {
-      const merged = comments.join(" ").toLowerCase();
-
-      if (merged.includes("difficult") || merged.includes("not clear") || merged.includes("hard")) {
-        summary = "Many students found some parts difficult or unclear.";
-      } 
-      else if (merged.includes("fast") || merged.includes("too quick")) {
-        summary = "The teaching pace may be too fast for some students.";
-      }
-      else if (merged.includes("slow") || merged.includes("boring")) {
-        summary = "Students felt the session was slow or less engaging.";
-      }
-      else if (merged.includes("good") || merged.includes("helpful") || merged.includes("clear")) {
-        summary = "Overall the students understood well and found the session helpful.";
-      }
-      else {
-        summary = "Students gave mixed comments. Review the detailed comments below.";
-      }
-    }
-
-    res.json({ totalResponses, avgRating, feedbacks, summary });
   } catch (err) {
     console.error("Error fetching analytics:", err);
     res.status(500).json({ success: false });
