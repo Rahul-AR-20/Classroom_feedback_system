@@ -696,7 +696,7 @@ function autofillTeacherName() {
    =========================== */
 
 const LOGO_BASE64 = ""; // optional base64 string
-const LOGO_PATH = "logo.jpg"; // recommended to put logo.jpg at project root
+const LOGO_PATH = "logo.jpeg"; // recommended to put logo.jpg at project root
 
 function summarizeComments(comments, maxKeywords = 6) {
   if (!comments || comments.length === 0) {
