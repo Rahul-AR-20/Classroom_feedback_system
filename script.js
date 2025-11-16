@@ -537,7 +537,6 @@ function updateTeacherUI() {
     dashboard.style.display = "block";
     setTimeout(() => { autofillTeacherName(); }, 50);
     loadMySessions();
-    populateFilterDropdowns();
   } else {
     authSection.style.display = "block";
     dashboard.style.display = "none";
@@ -1002,79 +1001,4 @@ function togglePassword() {
     open.style.display = "block";
     closed.style.display = "none";
   }
-}
-
-async function loadAnalyticsByFilter() {
-  const className = document.getElementById("filterClass").value;
-  const section = document.getElementById("filterSection").value;
-  const subject = document.getElementById("filterSubject").value;
-
-  if (!className || !section || !subject) {
-    return alert("Please select class, section, and subject!");
-  }
-
-  const token = getToken();
-
-  const res = await fetch(
-    `${BASE_URL}/api/analytics/filter?className=${className}&section=${section}&subject=${subject}`,
-    { headers: { Authorization: `Bearer ${token}` } }
-  );
-
-  const data = await res.json();
-
-  if (!data.success) {
-    return alert(data.message || "No analytics found for this class.");
-  }
-
-  // Update stats
-  document.getElementById("sessionsForThisClass").textContent = data.sessionsCount;
-  document.getElementById("totalStudentResponses").textContent = data.totalResponses;
-  document.getElementById("avgSessionRating").textContent = data.avgRating.toFixed(1);
-
-  // Draw charts
-  createRatingDistributionChart(data.feedbacks);
-  createRatingTrendChart(data.feedbacks);
-
-  // Show comments
-  displayFeedbackComments(data.feedbacks);
-
-  alert(`Showing analytics for ${className} - ${section} (${subject})`);
-}
-
-function fillDropdown(id, values) {
-  const select = document.getElementById(id);
-  select.innerHTML = `<option value="">Select</option>`;
-  values.forEach(v => {
-    const opt = document.createElement("option");
-    opt.value = v;
-    opt.textContent = v;
-    select.appendChild(opt);
-  });
-}
-
-function populateFilterDropdowns() {
-  const token = getToken();
-  if (!token) return;
-
-  fetch(`${BASE_URL}/api/teacher/sessions`, {
-    headers: { Authorization: `Bearer ${token}` }
-  })
-  .then(r => r.json())
-  .then(data => {
-    if (!data.success) return;
-
-    const classes = new Set();
-    const sections = new Set();
-    const subjects = new Set();
-
-    data.sessions.forEach(s => {
-      if (s.className) classes.add(s.className);
-      if (s.section) sections.add(s.section);
-      if (s.subject) subjects.add(s.subject);
-    });
-
-    fillDropdown("filterClass", classes);
-    fillDropdown("filterSection", sections);
-    fillDropdown("filterSubject", subjects);
-  });
 }

@@ -246,44 +246,6 @@ app.get("/api/teacher/analytics/latest", auth, async (req, res) => {
   }
 });
 
-app.get("/api/analytics/filter", auth, async (req, res) => {
-  try {
-    const { className, section, subject } = req.query;
-
-    const sessions = await Session.find({
-      teacherId: req.teacherId,
-      className,
-      section,
-      subject
-    });
-
-    if (!sessions.length) {
-      return res.json({ success: false, message: "No sessions found for this class." });
-    }
-
-    const selected = sessions[0]; // latest session for that class
-
-    const feedbacks = await Feedback.find({ sessionId: selected.sessionId });
-
-    const avgRating =
-      feedbacks.length === 0
-        ? 0
-        : feedbacks.reduce((a, b) => a + b.rating, 0) / feedbacks.length;
-
-    res.json({
-      success: true,
-      sessionsCount: sessions.length,
-      session: selected,
-      feedbacks,
-      totalResponses: feedbacks.length,
-      avgRating
-    });
-
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false });
-  }
-});
 app.listen(PORT, () => {
   console.log(`🚀 Server running at http://localhost:${PORT}`);
 });
