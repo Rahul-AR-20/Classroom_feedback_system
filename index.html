@@ -171,43 +171,61 @@
       </div>
 
       <!-- Analytics -->
-      <div id="analytics" class="tab-pane">
-        <h2 style="text-align:center;color:#667eea;margin-bottom:30px;">📈 Historical Analytics</h2>
-        <div id="analyticsSummary"></div> 
-        <div class="form-group" style="text-align:center;">
-          <input type="text" id="analyticsSessionId" class="form-control" placeholder="Enter Session ID"/>
-          <button class="btn btn-primary" onclick="loadAnalytics()">View Analytics</button>
-          <!-- Download button -->
-          <button class="btn btn-outline-primary" id="downloadReportBtn"
-        onclick="downloadReport(document.getElementById('analyticsSessionId').value)">
-📥 Download Report
-</button>
-        </div>
-        
-        <div class="stats-grid">
-          <div class="stat-card"><div class="stat-number" id="totalSessions">0</div><div class="stat-label">Total Sessions</div></div>
-          <div class="stat-card"><div class="stat-number" id="totalStudentResponses">0</div><div class="stat-label">Student Responses</div></div>
-          <div class="stat-card"><div class="stat-number" id="avgSessionRating">0</div><div class="stat-label">Average Rating</div></div>
-        </div>
+      <!-- Analytics -->
+<div id="analytics" class="tab-pane">
+  <h2 style="text-align:center;color:#667eea;margin-bottom:30px;">📈 Historical Analytics</h2>
 
-        <!-- Charts Section -->
-        <div class="charts-container">
-          <div class="chart-card">
-            <canvas id="ratingChart"></canvas>
-          </div>
-          <div class="chart-card">
-            <canvas id="trendChart"></canvas>
-          </div>
-        </div>
+  <!-- FILTERS -->
+  <div style="text-align:center; display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-bottom:20px;">
+    <select id="filterClass" class="form-control" style="width:200px;">
+        <option value="">Select Class</option>
+    </select>
 
-        <!-- Comments Section -->
-        <div class="chart-card" style="margin-top:20px;">
-          <div id="feedbackComments"></div>
-        </div>
-      </div>
+    <select id="filterSection" class="form-control" style="width:200px;">
+        <option value="">Select Section</option>
+    </select>
 
+    <select id="filterSubject" class="form-control" style="width:200px;">
+        <option value="">Select Subject</option>
+    </select>
+
+    <button class="btn btn-primary" onclick="loadAnalyticsByFilter()">View Analytics</button>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-number" id="totalSessions">0</div>
+      <div class="stat-label">Total Sessions (All)</div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-number" id="sessionsForThisClass">0</div>
+      <div class="stat-label">Sessions for Selected Class</div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-number" id="totalStudentResponses">0</div>
+      <div class="stat-label">Student Responses</div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-number" id="avgSessionRating">0</div>
+      <div class="stat-label">Average Rating</div>
     </div>
   </div>
+
+  <!-- Charts -->
+  <div class="charts-container">
+    <div class="chart-card"><canvas id="ratingChart"></canvas></div>
+    <div class="chart-card"><canvas id="trendChart"></canvas></div>
+  </div>
+
+  <!-- Comments -->
+  <div class="chart-card" style="margin-top:20px;">
+    <div id="feedbackComments"></div>
+  </div>
+</div>
 
   <!-- Custom JavaScript -->
   <script src="script.js"></script>
