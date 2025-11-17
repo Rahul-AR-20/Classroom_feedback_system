@@ -510,8 +510,10 @@ function displayFilteredSessions(sessions) {
     
     const matchesClass = !classFilter || session.className === classFilter;
     const matchesSubject = !subjectFilter || session.subject === subjectFilter;
+    // NEW: Date filtering
+    const matchesDate = !dateFilter || new Date(session.createdAt).toISOString().split('T')[0] === dateFilter;
     
-    return matchesSearch && matchesClass && matchesSubject;
+    return matchesSearch && matchesClass && matchesSubject && matchesDate;
   });
   
   // Ensure sessions sorted latest first
@@ -565,6 +567,7 @@ function clearFilters() {
   document.getElementById('sessionSearch').value = '';
   document.getElementById('classFilter').value = '';
   document.getElementById('subjectFilter').value = '';
+  document.getElementById('dateFilter').value = ''; // NEW
   if (typeof displayFilteredSessions === 'function') {
     displayFilteredSessions(allSessions);
   }
@@ -585,6 +588,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     if (subjectFilter) {
       subjectFilter.addEventListener('change', () => displayFilteredSessions(allSessions));
+    }
+    if (dateFilter) {
+      dateFilter.addEventListener('change', () => displayFilteredSessions(allSessions));
     }
   }, 1000);
 });
