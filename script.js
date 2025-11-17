@@ -423,6 +423,9 @@ async function startSessionAuthAware(payload) {
 }
 
 // (Optional) Show teacher's sessions so they don't copy IDs manually
+// (Optional) Show teacher's sessions so they don't copy IDs manually
+let allSessions = []; // Store sessions globally for filtering
+
 async function loadMySessions() {
   const box = document.getElementById("mySessions");
   if (!box) return;
@@ -443,26 +446,87 @@ async function loadMySessions() {
     return;
   }
 
-  const list = data.sessions || [];
-  if (list.length === 0) {
+  allSessions = data.sessions || [];
+  if (allSessions.length === 0) {
     box.innerHTML = `<p style="color:#666">No sessions yet.</p>`;
     return;
   }
 
-  // Ensure sessions sorted latest first
-  list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  // Populate filter dropdowns
+  populateFilters(allSessions);
+  
+  // Display filtered sessions
+  displayFilteredSessions(allSessions);
+}
 
-  let html = `<h3 style="color:#667eea;margin-bottom:10px;"></h3>`;
+function populateFilters(sessions) {
+  const classFilter = document.getElementById('classFilter');
+  const subjectFilter = document.getElementById('subjectFilter');
+  
+  if (!classFilter || !subjectFilter) return;
+  
+  // Get unique classes and subjects
+  const classes = [...new Set(sessions.map(s => s.className).filter(Boolean))];
+  const subjects = [...new Set(sessions.map(s => s.subject).filter(Boolean))];
+  
+  // Populate class filter
+  classFilter.innerHTML = '<option value="">All Classes</option>';
+  classes.forEach(className => {
+    const opt = document.createElement('option');
+    opt.value = className;
+    opt.textContent = className;
+    classFilter.appendChild(opt);
+  });
+  
+  // Populate subject filter
+  subjectFilter.innerHTML = '<option value="">All Subjects</option>';
+  subjects.forEach(subject => {
+    const opt = document.createElement('option');
+    opt.value = subject;
+    opt.textContent = subject;
+    subjectFilter.appendChild(opt);
+  });
+}
+
+function displayFilteredSessions(sessions) {
+  const box = document.getElementById("mySessions");
+  const searchTerm = document.getElementById('sessionSearch')?.value.toLowerCase() || '';
+  const classFilter = document.getElementById('classFilter')?.value || '';
+  const subjectFilter = document.getElementById('subjectFilter')?.value || '';
+  
+  // Filter sessions
+  let filteredSessions = sessions.filter(session => {
+    const matchesSearch = !searchTerm || 
+      (session.className && session.className.toLowerCase().includes(searchTerm)) ||
+      (session.subject && session.subject.toLowerCase().includes(searchTerm)) ||
+      (session.topic && session.topic.toLowerCase().includes(searchTerm)) ||
+      (session.sessionId && session.sessionId.toLowerCase().includes(searchTerm));
+    
+    const matchesClass = !classFilter || session.className === classFilter;
+    const matchesSubject = !subjectFilter || session.subject === subjectFilter;
+    
+    return matchesSearch && matchesClass && matchesSubject;
+  });
+  
+  // Ensure sessions sorted latest first
+  filteredSessions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  
+  if (filteredSessions.length === 0) {
+    box.innerHTML = `<p style="color:#666; text-align: center; padding: 20px;">No sessions match your filters</p>`;
+    return;
+  }
+
+  let html = `<div style="color: #666; font-size: 14px; margin-bottom: 10px;">Showing ${filteredSessions.length} of ${allSessions.length} sessions</div>`;
   let lastDate = "";
 
-  list.forEach(s => {
+  filteredSessions.forEach(s => {
     const date = new Date(s.createdAt);
     const dateStr = date.toLocaleDateString();
     const timeStr = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
     // Group by date
     if (dateStr !== lastDate) {
-      html += `<h4 style="margin-top:20px;margin-bottom:8px;color:#555;">📅 ${dateStr}</h4>`;
+      html += `<h4 style="margin-top:20px;margin-bottom:8px;color:#555; padding: 5px 10px; background: #f0f4ff; border-radius: 6px;">📅 ${dateStr}</h4>`;
       lastDate = dateStr;
     }
 
@@ -473,25 +537,51 @@ async function loadMySessions() {
         </div>
         <div style="margin-top:2px;">📝 Topic: ${s.topic}</div>
         <div style="margin-top:2px;">⏰ Time: ${timeStr}</div>
-        <div style="margin-top:5px; display:flex; gap:10px; align-items:center;">
-  <code>${s.sessionId}</code>
-
-  <button style="padding:6px 10px;border-radius:5px;"
-          onclick="quickAnalytics('${s.sessionId}')">
-    View Analytics
-  </button>
-
-  <button style="padding:6px 10px;border-radius:5px;background:#0A84FF;color:white;border:none;"
-          onclick="downloadReport('${s.sessionId}')">
-    Download Report
-  </button>
-</div>
+        <div style="margin-top:5px; display:flex; gap:10px; align-items:center; flex-wrap: wrap;">
+          <code style="background: #e9ecef; padding: 4px 8px; border-radius: 4px;">${s.sessionId}</code>
+          <button style="padding:6px 10px;border-radius:5px; background: #667eea; color: white; border: none; cursor: pointer;"
+                  onclick="quickAnalytics('${s.sessionId}')">
+            View Analytics
+          </button>
+          <button style="padding:6px 10px;border-radius:5px;background:#0A84FF;color:white;border:none; cursor: pointer;"
+                  onclick="downloadReport('${s.sessionId}')">
+            Download Report
+          </button>
+        </div>
       </div>
     `;
   });
 
   box.innerHTML = html;
 }
+
+function clearFilters() {
+  document.getElementById('sessionSearch').value = '';
+  document.getElementById('classFilter').value = '';
+  document.getElementById('subjectFilter').value = '';
+  if (typeof displayFilteredSessions === 'function') {
+    displayFilteredSessions(allSessions);
+  }
+}
+
+// Add event listeners for real-time filtering
+document.addEventListener('DOMContentLoaded', function() {
+  setTimeout(() => {
+    const searchInput = document.getElementById('sessionSearch');
+    const classFilter = document.getElementById('classFilter');
+    const subjectFilter = document.getElementById('subjectFilter');
+    
+    if (searchInput) {
+      searchInput.addEventListener('input', () => displayFilteredSessions(allSessions));
+    }
+    if (classFilter) {
+      classFilter.addEventListener('change', () => displayFilteredSessions(allSessions));
+    }
+    if (subjectFilter) {
+      subjectFilter.addEventListener('change', () => displayFilteredSessions(allSessions));
+    }
+  }, 1000);
+});
 
 async function quickAnalytics(sessionId) {
   const el = document.getElementById("analyticsSessionId");

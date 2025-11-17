@@ -124,6 +124,17 @@
 
     <div class="card" style="margin-top: 20px;">
       <h3>🧾 My Sessions</h3>
+        <!-- ADD SEARCH AND FILTER CONTROLS -->
+  <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
+    <input type="text" id="sessionSearch" class="form-control" placeholder="🔍 Search by class, subject, topic..." style="flex: 1; min-width: 200px;" />
+    <select id="classFilter" class="form-control" style="width: 150px;">
+      <option value="">All Classes</option>
+    </select>
+    <select id="subjectFilter" class="form-control" style="width: 150px;">
+      <option value="">All Subjects</option>
+    </select>
+    <button class="btn btn-secondary" onclick="clearFilters()">Clear</button>
+  </div>
       <div id="mySessions">
         <p style="color:#666;">Loading your sessions...</p>
       </div>
