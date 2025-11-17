@@ -200,7 +200,7 @@ async function loadAnalytics() {
     if (data.totalResponses !== undefined) {
 
       /* -----------------------------------------
-         1) UPDATE TOTAL SESSIONS (NEW)
+         1) UPDATE TOTAL SESSIONS FOR THIS CLASS (NEW)
       ------------------------------------------ */
       const token = getToken();
       if (token) {
@@ -209,21 +209,27 @@ async function loadAnalytics() {
         });
         const sData = await sRes.json();
         if (sData.success) {
-          document.getElementById("totalSessions").textContent =
-            sData.sessions.length;
+          // Count sessions for this specific class
+          const className = data.className;
+          const section = data.section;
+          const sessionsForThisClass = sData.sessions.filter(s => 
+            s.className === className && s.section === section
+          ).length;
+          
+          document.getElementById("totalSessions").textContent = sessionsForThisClass;
         }
       }
       /* ----------------------------------------- */
 
-      // Update stats numbers
+      // Update stats numbers (only for current session)
       document.getElementById("totalStudentResponses").textContent = data.totalResponses;
       document.getElementById("avgSessionRating").textContent = (data.avgRating || 0).toFixed(1);
 
-      // Create charts
+      // Create charts (only for current session)
       createRatingDistributionChart(data.feedbacks);
       createRatingTrendChart(data.feedbacks);
       
-      // Show feedback comments
+      // Show feedback comments (only for current session)
       displayFeedbackComments(data.feedbacks);
 
     } else {
