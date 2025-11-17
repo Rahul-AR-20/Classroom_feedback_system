@@ -314,7 +314,8 @@ function createRatingTrendChart(feedbacks) {
 }
 
 // Display Feedback Comments
-function displayFeedbackComments(feedbacks) {
+// Display Feedback Comments
+async function displayFeedbackComments(feedbacks) {
   const commentsContainer = document.getElementById('feedbackComments');
   const comments = feedbacks
     .map(fb => fb.comment)
@@ -326,13 +327,24 @@ function displayFeedbackComments(feedbacks) {
     return;
   }
 
-  // FIXED: Use correct summarizer
-  const summary = summarizeComments(comments);
+  // Show loading indicator
+  commentsContainer.innerHTML = `
+    <div style="text-align:center;padding:20px;color:#667eea;">
+      <div>🤖 AI is analyzing ${comments.length} student comments...</div>
+      <div style="font-size:12px;color:#666;margin-top:8px;">This may take a few seconds</div>
+    </div>
+  `;
+
+  // Load analysis asynchronously
+  const summary = await summarizeComments(comments);
 
   let html = `
-    <h4 style="color:#667eea;margin-bottom:10px;">🧠 Summary of Student Feedback</h4>
-    <div style="background:#f0f4ff;padding:12px;border-radius:8px;margin-bottom:20px;">
-      ${summary.summaryOneLine}
+    <h4 style="color:#667eea;margin-bottom:10px;">
+      Summary of Student Feedback
+      ${summary.isAI ? '<span style="font-size:12px;color:#51cf66;">(AI Powered)</span>' : '<span style="font-size:12px;color:#ff6b6b;">(Rule-Based Fallback)</span>'}
+    </h4>
+    <div style="background:#f0f4ff;padding:15px;border-radius:8px;margin-bottom:20px;border-left:4px solid #667eea;">
+      ${formatSummary(summary.summaryOneLine)}
     </div>
 
     <h4 style="color:#667eea;margin-bottom:10px;">Student Comments (sample):</h4>
@@ -349,6 +361,15 @@ function displayFeedbackComments(feedbacks) {
   commentsContainer.innerHTML = html;
 }
 
+// Helper function to format the summary
+function formatSummary(summary) {
+  return summary
+    .split('. ')
+    .map(sentence => sentence.trim())
+    .filter(sentence => sentence.length > 0)
+    .map(sentence => `• ${sentence}`)
+    .join('<br>');
+}
 // ===== Teacher Auth (minimal) =====
 function getToken() { return localStorage.getItem("authToken"); }
 function setToken(t) { localStorage.setItem("authToken", t); }
@@ -727,7 +748,46 @@ function autofillTeacherName() {
 const LOGO_BASE64 = ""; // optional base64 string
 const LOGO_PATH = "logo.jpeg"; // recommended to put logo.jpg at project root
 
-function summarizeComments(comments) {
+async function summarizeComments(comments) {
+  if (!comments || comments.length === 0) {
+    return {
+      summaryOneLine: "No comments to summarize.",
+      sampleComments: []
+    };
+  }
+
+  try {
+    console.log(`🤖 AI analyzing ${comments.length} comments...`);
+    
+    const res = await fetch(`${BASE_URL}/api/summarize-comments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ comments })
+    });
+
+    const data = await res.json();
+    
+    if (data.success) {
+      return {
+        summaryOneLine: data.summary,
+        sampleComments: comments.slice(0, 8),
+        totalComments: data.totalComments,
+        isAI: !data.isFallback
+      };
+    } else {
+      throw new Error("AI summarization failed");
+    }
+  } catch (err) {
+    console.error("AI summarization error:", err);
+    console.log("Falling back to rule-based summarization...");
+    
+    // Fallback to rule-based summarization
+    return fallbackSummarizeComments(comments);
+  }
+}
+
+// Keep your original function as fallback
+function fallbackSummarizeComments(comments) {
   if (!comments || comments.length === 0) {
     return {
       summaryOneLine: "No comments to summarize.",
@@ -834,7 +894,9 @@ async function generatePDFReport() {
     const ratingImg = await captureCanvasAsImage("ratingChart");
     const trendImg = await captureCanvasAsImage("trendChart");
     const comments = (data.feedbacks || []).map(f => f.comment || "").filter(Boolean);
-    const summary = summarizeComments(comments);
+    
+    // PROPERLY AWAIT AI SUMMARIZATION
+    const summary = await summarizeComments(comments);
     const logoData = await loadLogoDataURL();
 
     const { jsPDF } = window.jspdf;
@@ -843,138 +905,264 @@ async function generatePDFReport() {
     const margin = 36;
     let y = margin;
 
+    // ===== ENHANCED HEADER =====
     if (logoData) {
       const imgProps = pdf.getImageProperties(logoData);
-      const imgW = 72;
+      const imgW = 60;
       const imgH = (imgProps.height * imgW) / imgProps.width;
       pdf.addImage(logoData, "JPEG", margin, y, imgW, imgH);
-      pdf.setFontSize(14);
-      pdf.text("Bangalore Institute of Technology", margin + imgW + 12, y + 18);
-      pdf.setFontSize(10);
-      pdf.text("Real-Time Classroom Feedback Report", margin + imgW + 12, y + 34);
-      y += Math.max(imgH, 48) + 8;
-    } else {
       pdf.setFontSize(16);
-      pdf.text("Bangalore Institute of Technology", pageWidth / 2, y + 8, { align: "center" });
-      pdf.setFontSize(12);
-      pdf.text("Real-Time Classroom Feedback Report", pageWidth / 2, y + 28, { align: "center" });
-      y += 48;
+      pdf.setTextColor(40, 40, 40);
+      pdf.text("BANGALORE INSTITUTE OF TECHNOLOGY", margin + imgW + 15, y + 15);
+      pdf.setFontSize(10);
+      pdf.setTextColor(100, 100, 100);
+      pdf.text("Department of Computer Science & Engineering", margin + imgW + 15, y + 30);
+      pdf.text("Classroom Feedback Analytics Report", margin + imgW + 15, y + 42);
+      y += Math.max(imgH, 55);
+    } else {
+      pdf.setFontSize(18);
+      pdf.setTextColor(40, 40, 40);
+      pdf.text("BANGALORE INSTITUTE OF TECHNOLOGY", pageWidth / 2, y + 15, { align: "center" });
+      pdf.setFontSize(11);
+      pdf.setTextColor(100, 100, 100);
+      pdf.text("Classroom Feedback Analytics Report", pageWidth / 2, y + 35, { align: "center" });
+      y += 55;
     }
 
-    pdf.setDrawColor(200);
-    pdf.setLineWidth(0.5);
+    // Header separator line
+    pdf.setDrawColor(200, 200, 200);
+    pdf.setLineWidth(0.75);
     pdf.line(margin, y, pageWidth - margin, y);
-    y += 12;
+    y += 20;
 
-// SESSION HEADER META FIXED
-const className = data.className || "N/A";
-const section   = data.section || "N/A";
-const subject   = data.subject || "N/A";
-const teacher   = data.teacher || "N/A";
-const topic     = data.topic   || "N/A";
-
-// SESSION HEADER
-pdf.setFontSize(11);
-pdf.setFont("helvetica", "bold");
-pdf.text(`Session ID: ${sessionId}`, margin, y);
-y += 14;
-
-// CLASS META
-pdf.setFont("helvetica", "normal");
-pdf.text(`Class: ${className} (${section})`, margin, y);
-pdf.text(`Teacher: ${teacher}`, margin + 250, y);
-y += 14;
-
-pdf.text(`Subject: ${subject}`, margin, y);
-pdf.text(`Topic: ${topic}`, margin + 250, y);
-y += 20;
-
+    // ===== EXECUTIVE SUMMARY CARD =====
+    pdf.setFillColor(245, 247, 250);
+    pdf.rect(margin, y, pageWidth - margin * 2, 80, 'F');
     
+    pdf.setFontSize(14);
+    pdf.setTextColor(60, 60, 60);
     pdf.setFont("helvetica", "bold");
-    pdf.text(`Total responses: ${data.totalResponses}`, margin, y);
-    pdf.text(`Average rating: ${data.avgRating ? data.avgRating.toFixed(1) : "N/A"}`, margin + 200, y);
-    y += 18;
+    pdf.text("📊 Executive Summary", margin + 10, y + 15);
+    
+    pdf.setFontSize(10);
+    pdf.setTextColor(80, 80, 80);
+    
+    // Session Info
+    pdf.text(`Session: ${data.subject || "N/A"} - ${data.topic || "N/A"}`, margin + 15, y + 30);
+    pdf.text(`Class: ${data.className || "N/A"} (${data.section || "N/A"})`, margin + 15, y + 42);
+    pdf.text(`Teacher: ${data.teacher || "N/A"}`, margin + 15, y + 54);
+    pdf.text(`Date: ${new Date().toLocaleDateString()}`, margin + 15, y + 66);
+    
+    // Quick Stats
+    const statsX = pageWidth - margin - 150;
+    pdf.text(`Total Responses: ${data.totalResponses}`, statsX, y + 30);
+    pdf.text(`Average Rating: ${data.avgRating ? data.avgRating.toFixed(1) + '/5' : "N/A"}`, statsX, y + 42);
+    
+    // Rating interpretation
+    let ratingText = "Needs Improvement";
+    let ratingColor = [220, 53, 69]; // Red
+    if (data.avgRating >= 4) {
+      ratingText = "Excellent";
+      ratingColor = [40, 167, 69]; // Green
+    } else if (data.avgRating >= 3) {
+      ratingText = "Good";
+      ratingColor = [255, 193, 7]; // Yellow
+    }
+    
+    pdf.setTextColor(...ratingColor);
+    pdf.text(`Overall: ${ratingText}`, statsX, y + 54);
+    pdf.setTextColor(80, 80, 80);
+    pdf.text(`Session ID: ${sessionId}`, statsX, y + 66);
+    
+    y += 90;
 
-    const availableWidth = pageWidth - margin * 2;
-    const halfWidth = (availableWidth - 12) / 2;
+    // ===== KEY INSIGHTS SECTION =====
+    pdf.setFontSize(13);
+    pdf.setTextColor(60, 60, 60);
+    pdf.setFont("helvetica", "bold");
+    pdf.text("🔍 Key Insights & Analysis", margin, y);
+    y += 20;
+
+    // AI Summary Box
+    pdf.setFillColor(248, 249, 252);
+    pdf.rect(margin, y, pageWidth - margin * 2, 0, 'F');
+    
+    pdf.setFontSize(10);
+    pdf.setTextColor(30, 30, 30);
+    
+    // Add AI badge if AI was used
+    if (summary.isAI) {
+      pdf.setFillColor(232, 247, 255);
+      pdf.roundedRect(margin, y - 5, 60, 12, 3, 3, 'F');
+      pdf.setFontSize(8);
+      pdf.setTextColor(0, 123, 255);
+      pdf.text("🤖 AI-POWERED ANALYSIS", margin + 5, y + 2);
+      pdf.setFontSize(10);
+      pdf.setTextColor(30, 30, 30);
+    }
+    
+    const summaryLines = pdf.splitTextToSize(summary.summaryOneLine, pageWidth - margin * 2 - 10);
+    pdf.text(summaryLines, margin + 5, y + 15);
+    y += summaryLines.length * 12 + 25;
+
+    // ===== VISUAL ANALYTICS =====
+    pdf.setFontSize(13);
+    pdf.setFont("helvetica", "bold");
+    pdf.text("📈 Visual Analytics", margin, y);
+    y += 15;
+
+    const chartWidth = (pageWidth - margin * 2 - 20) / 2;
+    const chartHeight = chartWidth * 0.6;
 
     if (ratingImg) {
-      pdf.addImage(ratingImg, "jpeg", margin, y, halfWidth, halfWidth * 0.7);
+      pdf.addImage(ratingImg, "JPEG", margin, y, chartWidth, chartHeight);
     } else {
-      pdf.rect(margin, y, halfWidth, halfWidth * 0.7);
-      pdf.text("Rating distribution chart unavailable", margin + 6, y + 20);
+      pdf.setFillColor(250, 250, 250);
+      pdf.rect(margin, y, chartWidth, chartHeight, 'F');
+      pdf.setTextColor(150, 150, 150);
+      pdf.text("Rating Chart Unavailable", margin + chartWidth/2 - 25, y + chartHeight/2);
     }
 
     if (trendImg) {
-      pdf.addImage(trendImg, "jpeg", margin + halfWidth + 12, y, halfWidth, halfWidth * 0.7);
+      pdf.addImage(trendImg, "JPEG", margin + chartWidth + 20, y, chartWidth, chartHeight);
     } else {
-      pdf.rect(margin + halfWidth + 12, y, halfWidth, halfWidth * 0.7);
-      pdf.text("Trend chart unavailable", margin + halfWidth + 20, y + 20);
+      pdf.setFillColor(250, 250, 250);
+      pdf.rect(margin + chartWidth + 20, y, chartWidth, chartHeight, 'F');
+      pdf.setTextColor(150, 150, 150);
+      pdf.text("Trend Chart Unavailable", margin + chartWidth + 20 + chartWidth/2 - 25, y + chartHeight/2);
     }
 
-    y += halfWidth * 0.7 + 12;
+    y += chartHeight + 20;
 
-    pdf.setFont("helvetica", "bold");
-    pdf.text("Summary of comments:", margin, y);
-    pdf.setFont("helvetica", "normal");
-    const summaryLines = pdf.splitTextToSize(summary.summaryOneLine, pageWidth - margin * 2);
-    y += 14;
-    pdf.text(summaryLines, margin, y);
-    y += summaryLines.length * 12 + 8;
-
-
-    if (summary.sampleComments && summary.sampleComments.length) {
+    // ===== ACTIONABLE RECOMMENDATIONS =====
+    if (comments.length > 0) {
+      pdf.setFontSize(13);
       pdf.setFont("helvetica", "bold");
-      pdf.text("Sample comments:", margin, y);
-      y += 14;
-      pdf.setFont("helvetica", "normal");
-      const maxComments = summary.sampleComments.length;
-      for (let i = 0; i < maxComments; i++) {
-        const c = `• ${summary.sampleComments[i]}`;
-        const wrapped = pdf.splitTextToSize(c, pageWidth - margin * 2);
-        if (y + wrapped.length * 12 > pdf.internal.pageSize.getHeight() - 80) {
+      pdf.setTextColor(60, 60, 60);
+      pdf.text("💡 Actionable Recommendations", margin, y);
+      y += 20;
+
+      // Generate recommendations based on common issues
+      const recommendations = generateRecommendations(summary.summaryOneLine, data.avgRating);
+      
+      pdf.setFontSize(9);
+      pdf.setTextColor(80, 80, 80);
+      
+      recommendations.forEach((rec, index) => {
+        if (y > pdf.internal.pageSize.getHeight() - 50) {
           pdf.addPage();
           y = margin;
         }
-        pdf.text(wrapped, margin, y);
-        y += wrapped.length * 12 + 6;
-      }
+        
+         if (index % 2 === 0) {
+        pdf.setFillColor(248, 249, 252); // Light blue-gray for even rows
+    } else {
+        pdf.setFillColor(255, 255, 255); // White for odd rows
+    }
+        pdf.rect(margin, y, pageWidth - margin * 2, 15, 'F');
+        
+        pdf.text(`• ${rec}`, margin + 5, y + 10);
+        y += 18;
+      });
+      
+      y += 10;
     }
 
-    if (comments.length > summary.sampleComments.length) {
-      if (y + 40 > pdf.internal.pageSize.getHeight() - 80) {
+    // ===== STUDENT COMMENTS =====
+    if (comments.length > 0) {
+      if (y > pdf.internal.pageSize.getHeight() - 100) {
         pdf.addPage();
         y = margin;
       }
+      
+      pdf.setFontSize(13);
       pdf.setFont("helvetica", "bold");
-      pdf.text("All comments (first 100 shown):", margin, y);
-      y += 16;
-      pdf.setFont("helvetica", "normal");
-      const limit = Math.min(comments.length, 100);
-      for (let i = 0; i < limit; i++) {
-        const c = `${i+1}. ${comments[i]}`;
-        const wrapped = pdf.splitTextToSize(c, pageWidth - margin * 2);
-        if (y + wrapped.length * 12 > pdf.internal.pageSize.getHeight() - 80) {
+      pdf.setTextColor(60, 60, 60);
+      pdf.text("💬 Student Comments (Representative Sample)", margin, y);
+      y += 20;
+
+      pdf.setFontSize(9);
+      pdf.setTextColor(80, 80, 80);
+      
+      const sampleComments = summary.sampleComments.slice(0, 8);
+      sampleComments.forEach((comment, index) => {
+        if (y > pdf.internal.pageSize.getHeight() - 50) {
           pdf.addPage();
           y = margin;
         }
-        pdf.text(wrapped, margin, y);
-        y += wrapped.length * 12 + 6;
-      }
+        
+        // Alternate background colors
+        if (index % 2 === 0) {
+        pdf.setFillColor(250, 250, 250); // Light gray for even rows
+    } else {
+        pdf.setFillColor(255, 255, 255); // White for odd rows
+    }
+        pdf.rect(margin, y, pageWidth - margin * 2, 25, 'F');
+        
+        // Comment with proper formatting
+        const wrappedComment = pdf.splitTextToSize(`"${comment}"`, pageWidth - margin * 2 - 10);
+        pdf.text(wrappedComment, margin + 5, y + 10);
+        y += wrappedComment.length * 12 + 15;
+      });
     }
 
-    const bottomY = pdf.internal.pageSize.getHeight() - 60;
-    pdf.setDrawColor(200);
-    pdf.line(margin, bottomY - 12, pageWidth - margin, bottomY - 12);
-    pdf.setFontSize(10);
-    pdf.text("Generated by Real-Time Classroom Feedback System", margin, bottomY);
-    pdf.text("Signature: ______________________", pageWidth - margin - 200, bottomY);
+    // ===== PROFESSIONAL FOOTER =====
+    const footerY = pdf.internal.pageSize.getHeight() - 40;
+    pdf.setDrawColor(220, 220, 220);
+    pdf.setLineWidth(0.5);
+    pdf.line(margin, footerY - 10, pageWidth - margin, footerY - 10);
+    
+    pdf.setFontSize(8);
+    pdf.setTextColor(120, 120, 120);
+    pdf.text("Confidential - For Teacher's Use Only", margin, footerY);
+    pdf.text(`Generated on ${new Date().toLocaleString()}`, pageWidth - margin - 80, footerY);
+    pdf.text("Real-Time Classroom Feedback System", pageWidth / 2, footerY, { align: "center" });
 
-    pdf.save(`${sessionId}_feedback_report.pdf`);
+    pdf.save(`${sessionId}_Professional_Report.pdf`);
+    
   } catch (err) {
     console.error("PDF generation error:", err);
     alert("Failed to generate PDF. See console for details.");
   }
+}
+
+// ===== HELPER FUNCTION FOR RECOMMENDATIONS =====
+function generateRecommendations(summary, avgRating) {
+  const recommendations = [];
+  const summaryLower = summary.toLowerCase();
+  
+  // Teaching pace recommendations
+  if (summaryLower.includes('fast') || summaryLower.includes('speed') || summaryLower.includes('pace')) {
+    recommendations.push("Consider pausing more frequently for student questions and comprehension checks");
+    recommendations.push("Break down complex topics into smaller, digestible segments");
+  }
+  
+  // Clarity recommendations
+  if (summaryLower.includes('unclear') || summaryLower.includes('confus') || summaryLower.includes('not understand')) {
+    recommendations.push("Use more visual aids and real-world examples to explain abstract concepts");
+    recommendations.push("Provide step-by-step breakdowns for complex problems or procedures");
+  }
+  
+  // Examples recommendations
+  if (summaryLower.includes('example') || summaryLower.includes('instance')) {
+    recommendations.push("Incorporate more practical, hands-on examples in your teaching");
+    recommendations.push("Use case studies that relate to real-world applications");
+  }
+  
+  // General recommendations based on rating
+  if (avgRating < 3) {
+    recommendations.push("Consider implementing interactive activities to increase engagement");
+    recommendations.push("Schedule a follow-up session to address confusing topics");
+  } else if (avgRating >= 4) {
+    recommendations.push("Continue the current teaching approach - students are responding well");
+    recommendations.push("Consider sharing your successful teaching strategies with colleagues");
+  }
+  
+  // Always include these general recommendations
+  recommendations.push("Review key concepts in the next class based on student feedback");
+  recommendations.push("Encourage more student participation and questions during sessions");
+  
+  return recommendations.slice(0, 5); // Return top 5 recommendations
 }
 
 async function downloadReport(sessionId) {

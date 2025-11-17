@@ -246,6 +246,124 @@ app.get("/api/teacher/analytics/latest", auth, async (req, res) => {
   }
 });
 
+// Add this near the top with other requires
+const fetch = require('node-fetch'); // You might need to install: npm install node-fetch
+
+// ===== FREE AI SUMMARIZATION WITH HUGGING FACE =====
+app.post("/api/summarize-comments", async (req, res) => {
+  try {
+    const { comments } = req.body;
+    
+    if (!comments || !Array.isArray(comments) || comments.length === 0) {
+      return res.json({
+        success: true,
+        summary: "No comments to analyze."
+      });
+    }
+
+    const commentText = comments.slice(0, 50).join(". "); // Limit to first 50 comments
+    
+    // Hugging Face API call - USING FREE MODEL
+    const response = await fetch(
+      "https://api-inference.huggingface.co/models/facebook/bart-large-cnn",
+      {
+        headers: { 
+          "Authorization": `Bearer ${process.env.HUGGING_FACE_TOKEN}`,
+          "Content-Type": "application/json" 
+        },
+        method: "POST",
+        body: JSON.stringify({ 
+          inputs: `Analyze these student comments and identify what students found difficult. Focus on specific topics, examples, and concepts. Comments: ${commentText}`,
+          parameters: {
+            max_length: 300,
+            min_length: 100,
+            do_sample: false
+          }
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Hugging Face API error: ${response.status}`);
+    }
+
+    const result = await response.json();
+    
+    // Extract the summary text - NO ENHANCEMENT NEEDED
+    let summary = result[0]?.summary_text || "Unable to generate summary";
+
+    res.json({
+      success: true,
+      summary: summary,
+      totalComments: comments.length
+    });
+
+  } catch (err) {
+    console.error("AI summarization error:", err);
+    // Fallback to rule-based summarization
+    const fallbackSummary = fallbackSummarizeComments(req.body.comments || []);
+    res.json({
+      success: true,
+      summary: fallbackSummary.summaryOneLine,
+      totalComments: (req.body.comments || []).length,
+      isFallback: true
+    });
+  }
+});
+
+// Enhanced keyword-based fallback (KEEP THIS - it's your original working code)
+function fallbackSummarizeComments(comments) {
+  if (!comments || comments.length === 0) {
+    return {
+      summaryOneLine: "No comments to summarize.",
+      sampleComments: []
+    };
+  }
+
+  const text = comments.join(" ").toLowerCase();
+  const totalComments = comments.length;
+  
+  // Count occurrences of specific issues
+  const topicIssues = (text.match(/topic|concept|principle|theory/g) || []).length;
+  const exampleIssues = (text.match(/example|instance|case/g) || []).length;
+  const diagramIssues = (text.match(/diagram|graph|chart|visual/g) || []).length;
+  const paceIssues = (text.match(/fast|slow|pace|speed/g) || []).length;
+  const understandingIssues = (text.match(/not understand|confus|difficult|hard|unclear|don't get/g) || []).length;
+
+  let issues = [];
+  
+  if (understandingIssues > totalComments * 0.3) {
+    issues.push(`Many students (approximately ${Math.round(understandingIssues/totalComments*100)}%) found the material difficult to understand`);
+  }
+  
+  if (topicIssues > 0) {
+    issues.push(`Specific topics/concepts were challenging`);
+  }
+  
+  if (exampleIssues > 0) {
+    issues.push(`Examples used in class need clarification`);
+  }
+  
+  if (diagramIssues > 0) {
+    issues.push(`Visual aids/diagrams were confusing`);
+  }
+  
+  if (paceIssues > 0) {
+    issues.push(`Teaching pace needs adjustment`);
+  }
+
+  let summary = issues.length > 0 
+    ? `Based on ${totalComments} comments: ${issues.join("; ")}.`
+    : `Students provided ${totalComments} comments with mixed feedback.`;
+
+  return {
+    summaryOneLine: summary,
+    sampleComments: comments.slice(0, 8)
+  };
+}
+
+// NO enhanceSummaryWithKeywords FUNCTION - DELETED
+
 app.listen(PORT, () => {
   console.log(`🚀 Server running at http://localhost:${PORT}`);
 });
