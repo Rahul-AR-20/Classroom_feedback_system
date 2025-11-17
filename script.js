@@ -926,7 +926,7 @@ async function generatePDFReport() {
       pdf.setFontSize(10);
       pdf.setTextColor(100, 100, 100);
       pdf.setFont("helvetica", "normal");
-      pdf.text("Department of Computer Science & Engineering", margin + imgW + 15, y + 30);
+      pdf.text("Department of Information Science & Engineering", margin + imgW + 15, y + 30);
       pdf.text("Classroom Feedback Analytics Report", margin + imgW + 15, y + 42);
       y += Math.max(imgH, 55);
     } else {
@@ -1133,17 +1133,27 @@ async function generatePDFReport() {
       });
     }
 
-    // ===== PROFESSIONAL FOOTER =====
-    const footerY = pdf.internal.pageSize.getHeight() - 40;
+    // ===== PROFESSIONAL FOOTER (RECOMMENDED) =====
+    const footerY = pdf.internal.pageSize.getHeight() - 30;
+    
+    // Separator line
     pdf.setDrawColor(220, 220, 220);
     pdf.setLineWidth(0.5);
-    pdf.line(margin, footerY - 10, pageWidth - margin, footerY - 10);
+    pdf.line(margin, footerY - 15, pageWidth - margin, footerY - 15);
     
-    pdf.setFontSize(8);
+    pdf.setFontSize(7);
     pdf.setTextColor(120, 120, 120);
-    pdf.text("Confidential - For Teacher's Use Only", margin, footerY);
-    pdf.text(`Generated on ${new Date().toLocaleString()}`, pageWidth - margin - 80, footerY);
-    pdf.text("Real-Time Classroom Feedback System", pageWidth / 2, footerY, { align: "center" });
+    
+    // Line 1: Confidential notice and date
+    pdf.text("Confidential - For Teacher's Use Only", margin, footerY - 5);
+    
+    const currentDate = new Date();
+    const dateStr = currentDate.toLocaleDateString();
+    const timeStr = currentDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    pdf.text(`${dateStr} ${timeStr}`, pageWidth - margin, footerY - 5, { align: "right" });
+    
+    // Line 2: System name
+    pdf.text("Real-Time Classroom Feedback System", pageWidth / 2, footerY + 5, { align: "center" });
 
     pdf.save(`${sessionId}_Professional_Report.pdf`);
     
