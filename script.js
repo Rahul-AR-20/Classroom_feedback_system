@@ -499,6 +499,7 @@ function displayFilteredSessions(sessions) {
   const searchTerm = document.getElementById('sessionSearch')?.value.toLowerCase() || '';
   const classFilter = document.getElementById('classFilter')?.value || '';
   const subjectFilter = document.getElementById('subjectFilter')?.value || '';
+  const dateFilter = document.getElementById('dateFilter')?.value || '';
   
   // Filter sessions
   let filteredSessions = sessions.filter(session => {
@@ -589,9 +590,10 @@ document.addEventListener('DOMContentLoaded', function() {
     if (subjectFilter) {
       subjectFilter.addEventListener('change', () => displayFilteredSessions(allSessions));
     }
-    if (dateFilter) {
-      dateFilter.addEventListener('change', () => displayFilteredSessions(allSessions));
-    }
+    const dateFilterInput = document.getElementById("dateFilter");
+if (dateFilterInput) {
+  dateFilterInput.addEventListener('change', () => displayFilteredSessions(allSessions));
+}
   }, 1000);
 });
 
