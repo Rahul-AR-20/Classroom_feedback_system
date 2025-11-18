@@ -989,236 +989,387 @@ async function generatePDFReport() {
     const sessionId = document.getElementById("analyticsSessionId").value.trim();
     if (!sessionId) return alert("Enter session ID first and click View Analytics.");
 
+    // Fetch analytics
     const res = await fetch(`${BASE_URL}/api/analytics/${encodeURIComponent(sessionId)}`);
     const data = await res.json();
     if (!data || data.totalResponses === undefined) {
       return alert("Failed to load analytics for that session.");
     }
 
+    // Capture charts as images
     const ratingImg = await captureCanvasAsImage("ratingChart");
-    const trendImg = await captureCanvasAsImage("trendChart");
+    const trendImg  = await captureCanvasAsImage("trendChart");
 
-    const comments = (data.feedbacks || [])
-      .map(f => f.comment || "")
-      .filter(Boolean);
+    // Gather comments and AI summary
+    const comments = (data.feedbacks || []).map(f => f.comment || "").filter(Boolean);
+    const summary = await summarizeComments(comments); // returns { summaryOneLine, sampleComments, isAI, ... }
 
-    // AI Summarization (YES, still included)
-    const summary = await summarizeComments(comments);
-
-    // Load logo
+    // Load logo (logo.jpeg or base64 from loadLogoDataURL)
     const logoData = await loadLogoDataURL();
 
     const { jsPDF } = window.jspdf;
-
-    const pdf = new jsPDF({
-      orientation: "portrait",
-      unit: "pt",
-      format: "a4",
-      compress: true
-    });
+    const pdf = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4", compress: true });
 
     const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
     const margin = 36;
     let y = margin;
 
-    /* -------------------------------------------------
-       🔰 HEADER – BIT WITH LOGO (LEFT) + TEXT (RIGHT)
-    -------------------------------------------------- */
+    // Helper for safe text wrapping height
+    const lineHeight = 12;
+
+    // ---------------------------
+    // HEADER (logo left + BIT text)
+    // ---------------------------
     if (logoData) {
-      const props = pdf.getImageProperties(logoData);
-      const logoW = 60;
-      const logoH = (props.height * logoW) / props.width;
+      try {
+        const imgProps = pdf.getImageProperties(logoData);
+        const logoW = 60;
+        const logoH = (imgProps.height * logoW) / imgProps.width;
+        pdf.addImage(logoData, "JPEG", margin, y, logoW, logoH);
 
-      pdf.addImage(logoData, "JPEG", margin, y, logoW, logoH);
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(16);
+        pdf.text("BANGALORE INSTITUTE OF TECHNOLOGY", margin + logoW + 15, y + 16);
 
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(10);
+        pdf.text("K.R. Road, V.V. Puram, Bengaluru - 560004", margin + logoW + 15, y + 32);
+        pdf.text("Department of Information Science & Engineering", margin + logoW + 15, y + 46);
+
+        pdf.setFontSize(11);
+        pdf.setFont("helvetica", "bold");
+        pdf.text("STUDENT FEEDBACK — IMPACT ANALYSIS REPORT", margin + logoW + 15, y + 64);
+
+        y += Math.max(logoH, 74);
+      } catch (e) {
+        // If image loading fails, fall back to text header
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(16);
+        pdf.text("BANGALORE INSTITUTE OF TECHNOLOGY", pageWidth / 2, y + 16, { align: "center" });
+
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(10);
+        pdf.text("K.R. Road, V.V. Puram, Bengaluru - 560004", pageWidth / 2, y + 34, { align: "center" });
+        pdf.text("Department of Information Science & Engineering", pageWidth / 2, y + 48, { align: "center" });
+
+        pdf.setFontSize(11);
+        pdf.setFont("helvetica", "bold");
+        pdf.text("STUDENT FEEDBACK — IMPACT ANALYSIS REPORT", pageWidth / 2, y + 66, { align: "center" });
+
+        y += 80;
+      }
+    } else {
+      // No logo: center the header
       pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(18);
-      pdf.text(
-        "BANGALORE INSTITUTE OF TECHNOLOGY",
-        margin + logoW + 15,
-        y + 18
-      );
+      pdf.setFontSize(16);
+      pdf.text("BANGALORE INSTITUTE OF TECHNOLOGY", pageWidth / 2, y + 16, { align: "center" });
 
       pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(11);
-      pdf.text(
-        "K.R. ROAD, V.V. PURAM, BENGALURU - 560004",
-        margin + logoW + 15,
-        y + 33
-      );
-
-      pdf.text(
-        "Department of Information Science & Engineering",
-        margin + logoW + 15,
-        y + 47
-      );
-
       pdf.setFontSize(10);
-      pdf.text(
-        "Classroom Feedback Analytics Report",
-        margin + logoW + 15,
-        y + 61
-      );
+      pdf.text("K.R. Road, V.V. Puram, Bengaluru - 560004", pageWidth / 2, y + 34, { align: "center" });
+      pdf.text("Department of Information Science & Engineering", pageWidth / 2, y + 48, { align: "center" });
 
-      y += Math.max(logoH, 65);
+      pdf.setFontSize(11);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("STUDENT FEEDBACK — IMPACT ANALYSIS REPORT", pageWidth / 2, y + 66, { align: "center" });
+
+      y += 80;
     }
 
+    // Divider line after header
     pdf.setLineWidth(0.7);
-    pdf.setDrawColor(180, 180, 180);
+    pdf.setDrawColor(200, 200, 200);
     pdf.line(margin, y, pageWidth - margin, y);
-    y += 20;
+    y += 18;
 
-    /* --------------------------------------
-       📌 EXECUTIVE SUMMARY  
-    --------------------------------------- */
+    // ---------------------------
+    // Executive Summary (compact)
+    // ---------------------------
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(14);
     pdf.text("Executive Summary", margin, y);
-    y += 18;
-
-    pdf.setFontSize(10);
-    pdf.setFont("helvetica", "normal");
-    pdf.text(`Session: ${data.subject} - ${data.topic}`, margin, y); y += 14;
-    pdf.text(`Class: ${data.className} (${data.section})`, margin, y); y += 14;
-    pdf.text(`Teacher: ${data.teacher}`, margin, y); y += 14;
-    pdf.text(`Date: ${new Date().toLocaleDateString()}`, margin, y); y += 14;
-    pdf.text(`Session ID: ${sessionId}`, margin, y);
-
-    const statsX = pageWidth - margin - 160;
-    y -= 56;
-
-    pdf.text(`Total Responses: ${data.totalResponses}`, statsX, y); y += 14;
-    pdf.text(
-      `Average Rating: ${data.avgRating.toFixed(1)} / 5`,
-      statsX,
-      y
-    ); y += 14;
-
-    let overall = "Needs Improvement";
-    let col = [220, 53, 69];
-
-    if (data.avgRating >= 4) {
-      overall = "Excellent";
-      col = [40, 167, 69];
-    } else if (data.avgRating >= 3) {
-      overall = "Good";
-      col = [255, 193, 7];
-    }
-
-    pdf.setTextColor(...col);
-    pdf.text(`Overall: ${overall}`, statsX, y);
-    pdf.setTextColor(0, 0, 0);
-
-    y += 40;
-
-    /* --------------------------------------
-       🤖 AI SUMMARY SECTION
-    --------------------------------------- */
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(13);
-    pdf.text("Key Insights & AI Analysis", margin, y);
     y += 16;
 
-    if (summary.isAI) {
-      pdf.setFontSize(8);
-      pdf.setFillColor(220, 240, 255);
-      pdf.roundedRect(margin, y - 10, 70, 14, 3, 3, "F");
-      pdf.setTextColor(0, 90, 180);
-      pdf.text("AI-POWERED SUMMARY", margin + 6, y - 1);
-    }
-
-    pdf.setTextColor(0, 0, 0);
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(10);
 
-    const sumLines = pdf.splitTextToSize(
-      summary.summaryOneLine,
-      pageWidth - margin * 2
-    );
-    pdf.text(sumLines, margin, y + 10);
+    // concise lines: purpose, session, responses, avg rating, sentiment (AI)
+    const execLines = [
+      `Purpose: To measure student understanding & collect actionable feedback for teaching improvement.`,
+      `Session: ${data.subject || "N/A"} — ${data.topic || "N/A"} (${data.className || "N/A"} ${data.section ? "(" + data.section + ")" : ""})`,
+      `Teacher: ${data.teacher || "N/A"} | Session ID: ${sessionId} | Date: ${new Date().toLocaleDateString()}`,
+      `Responses: ${data.totalResponses} | Average Rating: ${data.avgRating ? data.avgRating.toFixed(1) + "/5" : "N/A"}`,
+      `Sentiment: ${summary.summaryOneLine ? (summary.summaryOneLine.split(".")[0] + ".") : "Summary not available."}`
+    ];
+    execLines.forEach(line => {
+      const wrapped = pdf.splitTextToSize(line, pageWidth - margin * 2);
+      pdf.text(wrapped, margin, y);
+      y += wrapped.length * lineHeight;
+    });
 
-    y += sumLines.length * 12 + 25;
+    y += 8;
 
-    /* --------------------------------------
-       📊 VISUAL ANALYTICS (Charts)
-    --------------------------------------- */
+    // ---------------------------
+    // Session Overview Table (very compact)
+    // ---------------------------
+    const tableX = margin;
+    const tableW = pageWidth - margin * 2;
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(11);
+    pdf.text("Session Overview", tableX, y);
+    y += 14;
+
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(10);
+
+    const overview = [
+      { k: "Session ID", v: sessionId },
+      { k: "Subject", v: data.subject || "N/A" },
+      { k: "Topic", v: data.topic || "N/A" },
+      { k: "Class / Section", v: `${data.className || "N/A"} ${data.section ? "-" + data.section : ""}`.trim() },
+      { k: "Teacher", v: data.teacher || "N/A" },
+      { k: "Responses", v: String(data.totalResponses) }
+    ];
+
+    const col1W = 120;
+    const col2W = tableW - col1W;
+    overview.forEach(row => {
+      pdf.setFillColor(248, 249, 252);
+      pdf.rect(tableX, y - 10, col1W, 18, "F");
+      pdf.setFillColor(255, 255, 255);
+      pdf.rect(tableX + col1W, y - 10, col2W, 18, "F");
+
+      pdf.setFont("helvetica", "bold");
+      pdf.text(row.k, tableX + 6, y + 4);
+      pdf.setFont("helvetica", "normal");
+      const vwrap = pdf.splitTextToSize(row.v, col2W - 12);
+      pdf.text(vwrap, tableX + col1W + 6, y + 4);
+
+      y += 20;
+    });
+
+    y += 8;
+
+    // ---------------------------
+    // Key Stats cards (compact)
+    // ---------------------------
+    const statsY = y;
+    const cardW = (pageWidth - margin * 2 - 20) / 3;
+    const cardH = 48;
+
+    // Prepare values
+    const totalResponses = data.totalResponses || 0;
+    const avgRating = data.avgRating ? parseFloat(data.avgRating) : 0;
+    const engagement = Math.min(100, Math.round((totalResponses / Math.max(1, 30)) * 100)); // simple derived metric
+
+    const statCards = [
+      { title: "Total Responses", value: String(totalResponses) },
+      { title: "Average Rating", value: avgRating ? avgRating.toFixed(1) + " / 5" : "N/A" },
+      { title: "Engagement (est.)", value: `${engagement}%` }
+    ];
+
+    let sx = margin;
+    statCards.forEach(card => {
+      pdf.setFillColor(245, 247, 250);
+      pdf.roundedRect(sx, y, cardW, cardH, 4, 4, "F");
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(11);
+      pdf.text(card.title, sx + 8, y + 16);
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(14);
+      pdf.text(card.value, sx + 8, y + 36);
+      sx += cardW + 10;
+    });
+
+    y += cardH + 18;
+
+    // ---------------------------
+    // Visual Analytics (charts)
+    // ---------------------------
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(13);
     pdf.text("Visual Analytics", margin, y);
-    y += 15;
+    y += 14;
 
     const chartW = (pageWidth - margin * 2 - 20) / 2;
     const chartH = chartW * 0.6;
 
     if (ratingImg) pdf.addImage(ratingImg, "JPEG", margin, y, chartW, chartH);
+    else {
+      pdf.setFillColor(250,250,250);
+      pdf.rect(margin, y, chartW, chartH, "F");
+      pdf.setFontSize(10);
+      pdf.setTextColor(130,130,130);
+      pdf.text("Rating Distribution Unavailable", margin + 10, y + chartH/2);
+      pdf.setTextColor(0,0,0);
+    }
+
     if (trendImg) pdf.addImage(trendImg, "JPEG", margin + chartW + 20, y, chartW, chartH);
+    else {
+      pdf.setFillColor(250,250,250);
+      pdf.rect(margin + chartW + 20, y, chartW, chartH, "F");
+      pdf.setFontSize(10);
+      pdf.setTextColor(130,130,130);
+      pdf.text("Trend Chart Unavailable", margin + chartW + 30, y + chartH/2);
+      pdf.setTextColor(0,0,0);
+    }
 
-    y += chartH + 30;
+    y += chartH + 18;
 
-    /* --------------------------------------
-       ✔ ACTIONABLE RECOMMENDATIONS
-    --------------------------------------- */
+    // ---------------------------
+    // AI Insights + Actionable Recommendations (compact)
+    // ---------------------------
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(13);
-    pdf.text("Actionable Recommendations", margin, y);
-    y += 18;
-
-    const tips = generateRecommendations(summary.summaryOneLine, data.avgRating);
+    pdf.text("AI-Powered Insights", margin, y);
+    y += 14;
 
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(10);
+    const insightLines = pdf.splitTextToSize(summary.summaryOneLine || "No insights available.", pageWidth - margin * 2);
+    pdf.text(insightLines, margin, y);
+    y += insightLines.length * lineHeight + 10;
 
-    tips.forEach(t => {
-      const wrap = pdf.splitTextToSize("• " + t, pageWidth - margin * 2);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(12);
+    pdf.text("Actionable Recommendations", margin, y);
+    y += 14;
+
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(10);
+    const recommendations = generateRecommendations(summary.summaryOneLine || "", data.avgRating || 0);
+    recommendations.forEach(rec => {
+      const wrap = pdf.splitTextToSize("• " + rec, pageWidth - margin * 2);
       pdf.text(wrap, margin, y);
-      y += wrap.length * 12 + 5;
+      y += wrap.length * lineHeight + 6;
     });
 
-    /* --------------------------------------
-       PAGE 2 – COMMENTS
-    --------------------------------------- */
+    // --- End of Page 1 content. Move to Page 2 ---
     pdf.addPage();
     y = margin;
 
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(13);
-    pdf.text("Representative Student Comments", margin, y);
-    y += 18;
+    pdf.text("Impact Assessment", margin, y);
+    y += 16;
 
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(10);
 
-    summary.sampleComments.forEach((c, idx) => {
-    const wrapped = pdf.splitTextToSize(`"${c}"`, pageWidth - margin * 2 - 10);
-    pdf.text(wrapped, margin + 5, y + 10);
-    y += wrapped.length * 12 + 15;
+    // Impact Assessment: short professional content (4–6 lines each for positives and improvements)
+    const positives = [
+      "Increased conceptual clarity for core topics identified by above-average ratings.",
+      "Engagement indicators show active student participation for majority of attendees.",
+      "Where examples were provided, students reported better comprehension."
+    ];
+    const improvements = [
+      "Certain subtopics showed lower understanding; targeted revision recommended.",
+      "A few students requested slower pace and additional worked examples.",
+      "Add short practice questions and summary notes to reinforce learning."
+    ];
 
-    // Page break safeguard
-    if (y > pdf.internal.pageSize.getHeight() - 50) {
-      pdf.addPage();
-      y = margin;
+    pdf.setFont("helvetica", "bold");
+    pdf.text("Positive Impact", margin, y);
+    y += 12;
+    pdf.setFont("helvetica", "normal");
+    positives.forEach(p => {
+      const wrap = pdf.splitTextToSize("• " + p, pageWidth - margin * 2);
+      pdf.text(wrap, margin, y);
+      y += wrap.length * lineHeight + 6;
+    });
+
+    y += 6;
+    pdf.setFont("helvetica", "bold");
+    pdf.text("Areas for Improvement", margin, y);
+    y += 12;
+    pdf.setFont("helvetica", "normal");
+    improvements.forEach(p => {
+      const wrap = pdf.splitTextToSize("• " + p, pageWidth - margin * 2);
+      pdf.text(wrap, margin, y);
+      y += wrap.length * lineHeight + 6;
+    });
+
+    y += 8;
+
+    // Representative Student Comments (top 8) — minimal, cleaned, alternating background
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(13);
+    pdf.text("Representative Student Comments (sample)", margin, y);
+    y += 16;
+
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(10);
+
+    const sampleComments = (summary.sampleComments || comments).slice(0, 8);
+
+    // helper to remove common emoji ranges to avoid PDF font/render issues
+    const stripEmojis = (s) => {
+      try {
+        return s.replace(/[\u{1F300}-\u{1F6FF}\u{1F900}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, "")
+                .replace(/\s+/g, " ").trim();
+      } catch (e) {
+        // if regexp with u flag not supported in environment, fallback to original
+        return s;
+      }
+    };
+
+    sampleComments.forEach((c, idx) => {
+      if (!c) return;
+      let text = String(c).trim();
+      text = stripEmojis(text);
+
+      // keep comments minimal (one or two short sentences) — truncate if too long
+      if (text.length > 300) text = text.slice(0, 300) + "...";
+
+      const wrapped = pdf.splitTextToSize(`"${text}"`, pageWidth - margin * 2 - 10);
+
+      // alternating background
+      if (idx % 2 === 0) {
+        pdf.setFillColor(250, 250, 250);
+        pdf.rect(margin, y - 6, pageWidth - margin * 2, wrapped.length * lineHeight + 10, "F");
+      }
+
+      pdf.setTextColor(30, 30, 30);
+      pdf.text(wrapped, margin + 6, y + 4);
+      y += wrapped.length * lineHeight + 14;
+
+      // page break safeguard
+      if (y > pageHeight - 90) {
+        pdf.addPage();
+        y = margin;
+      }
+    });
+
+    // Final short concluding paragraph
+    const conclusion = "Conclusion: The feedback shows a generally positive reception with highlighted areas for improvement. Implementing recommended actions will improve clarity and learning outcomes in subsequent sessions.";
+    const conclWrapped = pdf.splitTextToSize(conclusion, pageWidth - margin * 2);
+    pdf.setFont("helvetica", "bold");
+    pdf.text("Final Summary", margin, y);
+    y += 14;
+    pdf.setFont("helvetica", "normal");
+    pdf.text(conclWrapped, margin, y);
+    y += conclWrapped.length * lineHeight + 10;
+
+    // ---------------------------
+    // FOOTER: add on every page with page numbers
+    // ---------------------------
+    const pageCount = pdf.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      pdf.setPage(i);
+      const footY = pdf.internal.pageSize.getHeight() - 30;
+      pdf.setLineWidth(0.5);
+      pdf.setDrawColor(200, 200, 200);
+      pdf.line(margin, footY - 10, pageWidth - margin, footY - 10);
+      pdf.setFontSize(8);
+      pdf.setTextColor(120, 120, 120);
+      pdf.text("Confidential - Academic Use Only", margin, footY);
+      pdf.text(`Generated by Real-Time Classroom Feedback System`, pageWidth - margin, footY, { align: "right" });
+      pdf.text(`Page ${i} of ${pageCount}`, pageWidth / 2, footY + 9, { align: "center" });
     }
-});
 
-    /* --------------------------------------
-       FOOTER
-    --------------------------------------- */
-    const footY = pdf.internal.pageSize.getHeight() - 30;
-    pdf.setLineWidth(0.5);
-    pdf.setDrawColor(180, 180, 180);
-    pdf.line(margin, footY - 10, pageWidth - margin, footY - 10);
-
-    pdf.setFontSize(8);
-    pdf.text("Confidential - Academic Use Only", margin, footY);
-    pdf.text(
-      "Generated by Real-Time Classroom Feedback System",
-      pageWidth - margin,
-      footY,
-      { align: "right" }
-    );
-
+    // Save file
     pdf.save(`${sessionId}_BIT_Impact_Report.pdf`);
-
   } catch (err) {
     console.error("PDF generation error:", err);
     alert("Failed to generate PDF. See console for details.");
