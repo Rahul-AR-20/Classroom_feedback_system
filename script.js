@@ -1189,10 +1189,16 @@ async function generatePDFReport() {
     pdf.setFontSize(10);
 
     summary.sampleComments.forEach((c, idx) => {
-      const wrap = pdf.splitTextToSize(`"${c}"`, pageWidth - margin * 2);
-      pdf.text(wwrap, margin, y);
-      y += wrap.length * 12 + 10;
-    });
+    const wrapped = pdf.splitTextToSize(`"${c}"`, pageWidth - margin * 2 - 10);
+    pdf.text(wrapped, margin + 5, y + 10);
+    y += wrapped.length * 12 + 15;
+
+    // Page break safeguard
+    if (y > pdf.internal.pageSize.getHeight() - 50) {
+      pdf.addPage();
+      y = margin;
+    }
+});
 
     /* --------------------------------------
        FOOTER
