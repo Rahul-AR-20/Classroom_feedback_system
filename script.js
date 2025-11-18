@@ -997,270 +997,222 @@ async function generatePDFReport() {
 
     const ratingImg = await captureCanvasAsImage("ratingChart");
     const trendImg = await captureCanvasAsImage("trendChart");
-    const comments = (data.feedbacks || []).map(f => f.comment || "").filter(Boolean);
-    
-    // PROPERLY AWAIT AI SUMMARIZATION
+
+    const comments = (data.feedbacks || [])
+      .map(f => f.comment || "")
+      .filter(Boolean);
+
+    // AI Summarization (YES, still included)
     const summary = await summarizeComments(comments);
+
+    // Load logo
     const logoData = await loadLogoDataURL();
 
     const { jsPDF } = window.jspdf;
-    
-    // FIX: Use a font that supports basic characters
-    const pdf = new jsPDF({ 
-      orientation: "portrait", 
-      unit: "pt", 
+
+    const pdf = new jsPDF({
+      orientation: "portrait",
+      unit: "pt",
       format: "a4",
       compress: true
     });
-    
+
     const pageWidth = pdf.internal.pageSize.getWidth();
     const margin = 36;
     let y = margin;
 
-    // ===== ENHANCED HEADER =====
+    /* -------------------------------------------------
+       🔰 HEADER – BIT WITH LOGO (LEFT) + TEXT (RIGHT)
+    -------------------------------------------------- */
     if (logoData) {
-      const imgProps = pdf.getImageProperties(logoData);
-      const imgW = 60;
-      const imgH = (imgProps.height * imgW) / imgProps.width;
-      pdf.addImage(logoData, "JPEG", margin, y, imgW, imgH);
-      pdf.setFontSize(16);
-      pdf.setTextColor(40, 40, 40);
+      const props = pdf.getImageProperties(logoData);
+      const logoW = 60;
+      const logoH = (props.height * logoW) / props.width;
+
+      pdf.addImage(logoData, "JPEG", margin, y, logoW, logoH);
+
       pdf.setFont("helvetica", "bold");
-      pdf.text("BANGALORE INSTITUTE OF TECHNOLOGY", margin + imgW + 15, y + 15);
-      pdf.setFontSize(10);
-      pdf.setTextColor(100, 100, 100);
-      pdf.setFont("helvetica", "normal");
-      pdf.text("Department of Information Science & Engineering", margin + imgW + 15, y + 30);
-      pdf.text("Classroom Feedback Analytics Report", margin + imgW + 15, y + 42);
-      y += Math.max(imgH, 55);
-    } else {
       pdf.setFontSize(18);
-      pdf.setTextColor(40, 40, 40);
-      pdf.setFont("helvetica", "bold");
-      pdf.text("BANGALORE INSTITUTE OF TECHNOLOGY", pageWidth / 2, y + 15, { align: "center" });
-      pdf.setFontSize(11);
-      pdf.setTextColor(100, 100, 100);
+      pdf.text(
+        "BANGALORE INSTITUTE OF TECHNOLOGY",
+        margin + logoW + 15,
+        y + 18
+      );
+
       pdf.setFont("helvetica", "normal");
-      pdf.text("Classroom Feedback Analytics Report", pageWidth / 2, y + 35, { align: "center" });
-      y += 55;
+      pdf.setFontSize(11);
+      pdf.text(
+        "K.R. ROAD, V.V. PURAM, BENGALURU - 560004",
+        margin + logoW + 15,
+        y + 33
+      );
+
+      pdf.text(
+        "Department of Information Science & Engineering",
+        margin + logoW + 15,
+        y + 47
+      );
+
+      pdf.setFontSize(10);
+      pdf.text(
+        "Classroom Feedback Analytics Report",
+        margin + logoW + 15,
+        y + 61
+      );
+
+      y += Math.max(logoH, 65);
     }
 
-    // Header separator line
-    pdf.setDrawColor(200, 200, 200);
-    pdf.setLineWidth(0.75);
+    pdf.setLineWidth(0.7);
+    pdf.setDrawColor(180, 180, 180);
     pdf.line(margin, y, pageWidth - margin, y);
     y += 20;
 
-    // ===== EXECUTIVE SUMMARY CARD =====
-    pdf.setFillColor(245, 247, 250);
-    pdf.rect(margin, y, pageWidth - margin * 2, 80, 'F');
-    
+    /* --------------------------------------
+       📌 EXECUTIVE SUMMARY  
+    --------------------------------------- */
+    pdf.setFont("helvetica", "bold");
     pdf.setFontSize(14);
-    pdf.setTextColor(60, 60, 60);
-    pdf.setFont("helvetica", "bold");
-    
-    // FIX: Use text instead of emojis
-    pdf.text("Executive Summary", margin + 10, y + 15);
-    
+    pdf.text("Executive Summary", margin, y);
+    y += 18;
+
     pdf.setFontSize(10);
-    pdf.setTextColor(80, 80, 80);
     pdf.setFont("helvetica", "normal");
-    
-    // Session Info
-    pdf.text(`Session: ${data.subject || "N/A"} - ${data.topic || "N/A"}`, margin + 15, y + 30);
-    pdf.text(`Class: ${data.className || "N/A"} (${data.section || "N/A"})`, margin + 15, y + 42);
-    pdf.text(`Teacher: ${data.teacher || "N/A"}`, margin + 15, y + 54);
-    pdf.text(`Date: ${new Date().toLocaleDateString()}`, margin + 15, y + 66);
-    
-    // Quick Stats
-    const statsX = pageWidth - margin - 150;
-    pdf.text(`Total Responses: ${data.totalResponses}`, statsX, y + 30);
-    pdf.text(`Average Rating: ${data.avgRating ? data.avgRating.toFixed(1) + '/5' : "N/A"}`, statsX, y + 42);
-    
-    // Rating interpretation
-    let ratingText = "Needs Improvement";
-    let ratingColor = [220, 53, 69]; // Red
+    pdf.text(`Session: ${data.subject} - ${data.topic}`, margin, y); y += 14;
+    pdf.text(`Class: ${data.className} (${data.section})`, margin, y); y += 14;
+    pdf.text(`Teacher: ${data.teacher}`, margin, y); y += 14;
+    pdf.text(`Date: ${new Date().toLocaleDateString()}`, margin, y); y += 14;
+    pdf.text(`Session ID: ${sessionId}`, margin, y);
+
+    const statsX = pageWidth - margin - 160;
+    y -= 56;
+
+    pdf.text(`Total Responses: ${data.totalResponses}`, statsX, y); y += 14;
+    pdf.text(
+      `Average Rating: ${data.avgRating.toFixed(1)} / 5`,
+      statsX,
+      y
+    ); y += 14;
+
+    let overall = "Needs Improvement";
+    let col = [220, 53, 69];
+
     if (data.avgRating >= 4) {
-      ratingText = "Excellent";
-      ratingColor = [40, 167, 69]; // Green
+      overall = "Excellent";
+      col = [40, 167, 69];
     } else if (data.avgRating >= 3) {
-      ratingText = "Good";
-      ratingColor = [255, 193, 7]; // Yellow
+      overall = "Good";
+      col = [255, 193, 7];
     }
-    
-    pdf.setTextColor(...ratingColor);
-    pdf.text(`Overall: ${ratingText}`, statsX, y + 54);
-    pdf.setTextColor(80, 80, 80);
-    pdf.text(`Session ID: ${sessionId}`, statsX, y + 66);
-    
-    y += 90;
 
-    // ===== KEY INSIGHTS SECTION =====
-    pdf.setFontSize(13);
-    pdf.setTextColor(60, 60, 60);
+    pdf.setTextColor(...col);
+    pdf.text(`Overall: ${overall}`, statsX, y);
+    pdf.setTextColor(0, 0, 0);
+
+    y += 40;
+
+    /* --------------------------------------
+       🤖 AI SUMMARY SECTION
+    --------------------------------------- */
     pdf.setFont("helvetica", "bold");
-    
-    // FIX: Use text instead of emoji
-    pdf.text("Key Insights & Analysis", margin, y);
-    y += 20;
+    pdf.setFontSize(13);
+    pdf.text("Key Insights & AI Analysis", margin, y);
+    y += 16;
 
-    // AI Summary Box
-    pdf.setFillColor(248, 249, 252);
-    pdf.rect(margin, y, pageWidth - margin * 2, 0, 'F');
-    
-    pdf.setFontSize(10);
-    pdf.setTextColor(30, 30, 30);
-    pdf.setFont("helvetica", "normal");
-    
-    // Add AI badge if AI was used
     if (summary.isAI) {
-      pdf.setFillColor(232, 247, 255);
-      pdf.roundedRect(margin, y - 5, 60, 12, 3, 3, 'F');
       pdf.setFontSize(8);
-      pdf.setTextColor(0, 123, 255);
-      pdf.text("AI-POWERED ANALYSIS", margin + 5, y + 2);
-      pdf.setFontSize(10);
-      pdf.setTextColor(30, 30, 30);
+      pdf.setFillColor(220, 240, 255);
+      pdf.roundedRect(margin, y - 10, 70, 14, 3, 3, "F");
+      pdf.setTextColor(0, 90, 180);
+      pdf.text("AI-POWERED SUMMARY", margin + 6, y - 1);
     }
-    
-    const summaryLines = pdf.splitTextToSize(summary.summaryOneLine, pageWidth - margin * 2 - 10);
-    pdf.text(summaryLines, margin + 5, y + 15);
-    y += summaryLines.length * 12 + 25;
 
-    // ===== VISUAL ANALYTICS =====
-    pdf.setFontSize(13);
+    pdf.setTextColor(0, 0, 0);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(10);
+
+    const sumLines = pdf.splitTextToSize(
+      summary.summaryOneLine,
+      pageWidth - margin * 2
+    );
+    pdf.text(sumLines, margin, y + 10);
+
+    y += sumLines.length * 12 + 25;
+
+    /* --------------------------------------
+       📊 VISUAL ANALYTICS (Charts)
+    --------------------------------------- */
     pdf.setFont("helvetica", "bold");
-    
-    // FIX: Use text instead of emoji
+    pdf.setFontSize(13);
     pdf.text("Visual Analytics", margin, y);
     y += 15;
 
-    const chartWidth = (pageWidth - margin * 2 - 20) / 2;
-    const chartHeight = chartWidth * 0.6;
+    const chartW = (pageWidth - margin * 2 - 20) / 2;
+    const chartH = chartW * 0.6;
 
-    if (ratingImg) {
-      pdf.addImage(ratingImg, "JPEG", margin, y, chartWidth, chartHeight);
-    } else {
-      pdf.setFillColor(250, 250, 250);
-      pdf.rect(margin, y, chartWidth, chartHeight, 'F');
-      pdf.setTextColor(150, 150, 150);
-      pdf.text("Rating Chart Unavailable", margin + chartWidth/2 - 25, y + chartHeight/2);
-    }
+    if (ratingImg) pdf.addImage(ratingImg, "JPEG", margin, y, chartW, chartH);
+    if (trendImg) pdf.addImage(trendImg, "JPEG", margin + chartW + 20, y, chartW, chartH);
 
-    if (trendImg) {
-      pdf.addImage(trendImg, "JPEG", margin + chartWidth + 20, y, chartWidth, chartHeight);
-    } else {
-      pdf.setFillColor(250, 250, 250);
-      pdf.rect(margin + chartWidth + 20, y, chartWidth, chartHeight, 'F');
-      pdf.setTextColor(150, 150, 150);
-      pdf.text("Trend Chart Unavailable", margin + chartWidth + 20 + chartWidth/2 - 25, y + chartHeight/2);
-    }
+    y += chartH + 30;
 
-    y += chartHeight + 20;
+    /* --------------------------------------
+       ✔ ACTIONABLE RECOMMENDATIONS
+    --------------------------------------- */
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(13);
+    pdf.text("Actionable Recommendations", margin, y);
+    y += 18;
 
-    // ===== ACTIONABLE RECOMMENDATIONS =====
-    if (comments.length > 0) {
-      pdf.setFontSize(13);
-      pdf.setFont("helvetica", "bold");
-      pdf.setTextColor(60, 60, 60);
-      
-      // FIX: Use text instead of emoji
-      pdf.text("Actionable Recommendations", margin, y);
-      y += 20;
+    const tips = generateRecommendations(summary.summaryOneLine, data.avgRating);
 
-      // Generate recommendations based on common issues
-      const recommendations = generateRecommendations(summary.summaryOneLine, data.avgRating);
-      
-      pdf.setFontSize(9);
-      pdf.setTextColor(80, 80, 80);
-      pdf.setFont("helvetica", "normal");
-      
-      recommendations.forEach((rec, index) => {
-        if (y > pdf.internal.pageSize.getHeight() - 50) {
-          pdf.addPage();
-          y = margin;
-        }
-        
-        // FIXED: Correct background colors
-        if (index % 2 === 0) {
-          pdf.setFillColor(248, 249, 252); // Light blue-gray for even rows
-        } else {
-          pdf.setFillColor(255, 255, 255); // White for odd rows
-        }
-        pdf.rect(margin, y, pageWidth - margin * 2, 15, 'F');
-        
-        pdf.text(`• ${rec}`, margin + 5, y + 10);
-        y += 18;
-      });
-      
-      y += 10;
-    }
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(10);
 
-    // ===== STUDENT COMMENTS =====
-    if (comments.length > 0) {
-      if (y > pdf.internal.pageSize.getHeight() - 100) {
-        pdf.addPage();
-        y = margin;
-      }
-      
-      pdf.setFontSize(13);
-      pdf.setFont("helvetica", "bold");
-      pdf.setTextColor(60, 60, 60);
-      
-      // FIX: Use text instead of emoji
-      pdf.text("Student Comments (Representative Sample)", margin, y);
-      y += 20;
+    tips.forEach(t => {
+      const wrap = pdf.splitTextToSize("• " + t, pageWidth - margin * 2);
+      pdf.text(wrap, margin, y);
+      y += wrap.length * 12 + 5;
+    });
 
-      pdf.setFontSize(9);
-      pdf.setTextColor(80, 80, 80);
-      pdf.setFont("helvetica", "normal");
-      
-      const sampleComments = summary.sampleComments.slice(0, 8);
-      sampleComments.forEach((comment, index) => {
-        if (y > pdf.internal.pageSize.getHeight() - 50) {
-          pdf.addPage();
-          y = margin;
-        }
-        
-        // Alternate background colors
-        if (index % 2 === 0) {
-          pdf.setFillColor(250, 250, 250); // Light gray for even rows
-        } else {
-          pdf.setFillColor(255, 255, 255); // White for odd rows
-        }
-        pdf.rect(margin, y, pageWidth - margin * 2, 25, 'F');
-        
-        // Comment with proper formatting
-        const wrappedComment = pdf.splitTextToSize(`"${comment}"`, pageWidth - margin * 2 - 10);
-        pdf.text(wrappedComment, margin + 5, y + 10);
-        y += wrappedComment.length * 12 + 15;
-      });
-    }
+    /* --------------------------------------
+       PAGE 2 – COMMENTS
+    --------------------------------------- */
+    pdf.addPage();
+    y = margin;
 
-    // ===== PROFESSIONAL FOOTER (RECOMMENDED) =====
-    const footerY = pdf.internal.pageSize.getHeight() - 30;
-    
-    // Separator line
-    pdf.setDrawColor(220, 220, 220);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(13);
+    pdf.text("Representative Student Comments", margin, y);
+    y += 18;
+
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(10);
+
+    summary.sampleComments.forEach((c, idx) => {
+      const wrap = pdf.splitTextToSize(`"${c}"`, pageWidth - margin * 2);
+      pdf.text(wwrap, margin, y);
+      y += wrap.length * 12 + 10;
+    });
+
+    /* --------------------------------------
+       FOOTER
+    --------------------------------------- */
+    const footY = pdf.internal.pageSize.getHeight() - 30;
     pdf.setLineWidth(0.5);
-    pdf.line(margin, footerY - 15, pageWidth - margin, footerY - 15);
-    
-    pdf.setFontSize(7);
-    pdf.setTextColor(120, 120, 120);
-    
-    // Line 1: Confidential notice and date
-    pdf.text("Confidential - For Teacher's Use Only", margin, footerY - 5);
-    
-    const currentDate = new Date();
-    const dateStr = currentDate.toLocaleDateString();
-    const timeStr = currentDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    pdf.text(`${dateStr} ${timeStr}`, pageWidth - margin, footerY - 5, { align: "right" });
-    
-    // Line 2: System name
-    pdf.text("Real-Time Classroom Feedback System", pageWidth / 2, footerY + 5, { align: "center" });
+    pdf.setDrawColor(180, 180, 180);
+    pdf.line(margin, footY - 10, pageWidth - margin, footY - 10);
 
-    pdf.save(`${sessionId}_Professional_Report.pdf`);
-    
+    pdf.setFontSize(8);
+    pdf.text("Confidential - Academic Use Only", margin, footY);
+    pdf.text(
+      "Generated by Real-Time Classroom Feedback System",
+      pageWidth - margin,
+      footY,
+      { align: "right" }
+    );
+
+    pdf.save(`${sessionId}_BIT_Impact_Report.pdf`);
+
   } catch (err) {
     console.error("PDF generation error:", err);
     alert("Failed to generate PDF. See console for details.");
