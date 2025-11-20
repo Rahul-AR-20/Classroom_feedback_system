@@ -265,7 +265,7 @@ app.post("/api/summarize-comments", async (req, res) => {
     const commentText = comments.slice(0, 50).join(". ");
 
     const response = await fetch(
-      "https://api-inference.huggingface.co/models/google/pegasus-xsum",
+      "https://api-inference.huggingface.co/models/facebook/bart-large-cnn",
       {
         method: "POST",
         headers: {
