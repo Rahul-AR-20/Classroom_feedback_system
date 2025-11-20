@@ -249,31 +249,33 @@ app.get("/api/teacher/analytics/latest", auth, async (req, res) => {
 // Add this near the top with other requires
 
 // ===== FREE AI SUMMARIZATION WITH HUGGING FACE =====
+// --- Fetch Polyfill for Node (Render uses Node 16) ---
+const fetch = (...args) =>
+  import("node-fetch").then(({ default: fetch }) => fetch(...args));
+
+// ===== AI SUMMARIZATION USING HUGGINGFACE =====
 app.post("/api/summarize-comments", async (req, res) => {
   try {
     const { comments } = req.body;
 
     if (!comments || comments.length === 0) {
-      return res.json({
-        success: true,
-        summary: "No comments available."
-      });
+      return res.json({ success: true, summary: "No comments available." });
     }
 
     const commentText = comments.slice(0, 50).join(". ");
 
     const response = await fetch(
-      "https://api-inference.huggingface.co/models/facebook/bart-large-cnn",
+      "https://api-inference.huggingface.co/models/google/pegasus-xsum",
       {
+        method: "POST",
         headers: {
           "Authorization": `Bearer ${process.env.HUGGING_FACE_TOKEN}`,
           "Content-Type": "application/json"
         },
-        method: "POST",
         body: JSON.stringify({
           inputs: commentText,
           parameters: {
-            max_length: 150,
+            max_length: 120,
             min_length: 40,
             do_sample: false
           }
@@ -281,9 +283,8 @@ app.post("/api/summarize-comments", async (req, res) => {
       }
     );
 
-    // Check for HF service failures
     if (!response.ok) {
-      console.log("HF response failed:", response.status);
+      console.log("HF failed:", response.status);
       const fallback = fallbackSummarizeComments(comments);
       return res.json({
         success: true,
@@ -293,7 +294,7 @@ app.post("/api/summarize-comments", async (req, res) => {
     }
 
     const result = await response.json();
-    const summary = result[0]?.summary_text || null;
+    const summary = result[0]?.summary_text;
 
     if (!summary) {
       const fallback = fallbackSummarizeComments(comments);
@@ -320,6 +321,7 @@ app.post("/api/summarize-comments", async (req, res) => {
     });
   }
 });
+
 
 // Enhanced keyword-based fallback (KEEP THIS - it's your original working code)
 function fallbackSummarizeComments(comments) {
