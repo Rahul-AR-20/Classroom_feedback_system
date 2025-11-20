@@ -264,7 +264,7 @@ app.post("/api/summarize-comments", async (req, res) => {
     const commentText = comments.slice(0, 50).join(". ");
 
     const response = await fetch(
-      "https://api-inference.huggingface.co/models/sshleifer/distilbart-cnn-12-6",
+      "https://api-inference.huggingface.co/models/facebook/bart-large-cnn",
       {
         headers: {
           "Authorization": `Bearer ${process.env.HUGGING_FACE_TOKEN}`,
