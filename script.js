@@ -1090,21 +1090,17 @@ async function generatePDFReport() {
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(10);
 
-    const execLines = [
-      `Purpose: To measure student understanding & collect actionable feedback for teaching improvement.`,
-      `Session: ${data.subject || "N/A"} — ${data.topic || "N/A"} (${data.className || "N/A"} ${data.section ? "(" + data.section + ")" : ""})`,
-      `Teacher: ${data.teacher || "N/A"} | Session ID: ${sessionId} | Date: ${new Date().toLocaleDateString()}`,
-      `Responses: ${data.totalResponses} | Average Rating: ${data.avgRating ? data.avgRating.toFixed(1) + "/5" : "N/A"}`,
-      `Sentiment: ${summary.summaryOneLine ? (summary.summaryOneLine.split(".")[0] + ".") : "Summary not available."}`
-    ];
+// Executive Summary – interpretation only
+     const execSummaryLines = pdf.splitTextToSize([
+  "This report summarizes student feedback collected to evaluate teaching effectiveness and learning outcomes.",
+  `The session received ${data.totalResponses} responses, indicating ${data.totalResponses > 20 ? "strong" : "moderate"} participation.`,
+  `Overall understanding was rated at ${data.avgRating ? data.avgRating.toFixed(1) + "/5" : "N/A"}, reflecting the class's grasp of the topic.`,
+  `AI analysis indicates: ${summary.summaryOneLine || "No AI summary available."}`,
+  "The feedback highlights both strengths and specific areas where further clarification and reinforcement could enhance learning."
+].join(" "), pageWidth - margin * 2);
 
-    execLines.forEach(line => {
-      const wrapped = pdf.splitTextToSize(line, pageWidth - margin * 2);
-      pdf.text(wrapped, margin, y);
-      y += wrapped.length * lineHeight;
-    });
-
-    y += 8;
+  pdf.text(execSummaryLines, margin, y);
+y += execSummaryLines.length * lineHeight + 10;
 
     // =============== SESSION OVERVIEW TABLE ===============
     const tableX = margin;
