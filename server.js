@@ -247,7 +247,6 @@ app.get("/api/teacher/analytics/latest", auth, async (req, res) => {
 });
 
 // Add this near the top with other requires
-const fetch = require('node-fetch'); // You might need to install: npm install node-fetch
 
 // ===== FREE AI SUMMARIZATION WITH HUGGING FACE =====
 app.post("/api/summarize-comments", async (req, res) => {
