@@ -253,59 +253,70 @@ const fetch = require('node-fetch'); // You might need to install: npm install n
 app.post("/api/summarize-comments", async (req, res) => {
   try {
     const { comments } = req.body;
-    
-    if (!comments || !Array.isArray(comments) || comments.length === 0) {
+
+    if (!comments || comments.length === 0) {
       return res.json({
         success: true,
-        summary: "No comments to analyze."
+        summary: "No comments available."
       });
     }
 
-    const commentText = comments.slice(0, 50).join(". "); // Limit to first 50 comments
-    
-    // Hugging Face API call - USING FREE MODEL
+    const commentText = comments.slice(0, 50).join(". ");
+
     const response = await fetch(
-      "https://api-inference.huggingface.co/models/facebook/bart-large-cnn",
+      "https://api-inference.huggingface.co/models/sshleifer/distilbart-cnn-12-6",
       {
-        headers: { 
+        headers: {
           "Authorization": `Bearer ${process.env.HUGGING_FACE_TOKEN}`,
-          "Content-Type": "application/json" 
+          "Content-Type": "application/json"
         },
         method: "POST",
-        body: JSON.stringify({ 
-          inputs: `Analyze these student comments and identify what students found difficult. Focus on specific topics, examples, and concepts. Comments: ${commentText}`,
+        body: JSON.stringify({
+          inputs: commentText,
           parameters: {
-            max_length: 300,
-            min_length: 100,
+            max_length: 150,
+            min_length: 40,
             do_sample: false
           }
-        }),
+        })
       }
     );
 
+    // Check for HF service failures
     if (!response.ok) {
-      throw new Error(`Hugging Face API error: ${response.status}`);
+      console.log("HF response failed:", response.status);
+      const fallback = fallbackSummarizeComments(comments);
+      return res.json({
+        success: true,
+        summary: fallback.summaryOneLine,
+        isFallback: true
+      });
     }
 
     const result = await response.json();
-    
-    // Extract the summary text - NO ENHANCEMENT NEEDED
-    let summary = result[0]?.summary_text || "Unable to generate summary";
+    const summary = result[0]?.summary_text || null;
+
+    if (!summary) {
+      const fallback = fallbackSummarizeComments(comments);
+      return res.json({
+        success: true,
+        summary: fallback.summaryOneLine,
+        isFallback: true
+      });
+    }
 
     res.json({
       success: true,
-      summary: summary,
-      totalComments: comments.length
+      summary,
+      isFallback: false
     });
 
   } catch (err) {
-    console.error("AI summarization error:", err);
-    // Fallback to rule-based summarization
-    const fallbackSummary = fallbackSummarizeComments(req.body.comments || []);
+    console.error("AI Summarization Error:", err);
+    const fallback = fallbackSummarizeComments(req.body.comments || []);
     res.json({
       success: true,
-      summary: fallbackSummary.summaryOneLine,
-      totalComments: (req.body.comments || []).length,
+      summary: fallback.summaryOneLine,
       isFallback: true
     });
   }
