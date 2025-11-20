@@ -989,7 +989,7 @@ async function generatePDFReport() {
     const sessionId = document.getElementById("analyticsSessionId").value.trim();
     if (!sessionId) return alert("Enter session ID first and click View Analytics.");
 
-    // Fetch analytics
+    // Fetch analytics data
     const res = await fetch(`${BASE_URL}/api/analytics/${encodeURIComponent(sessionId)}`);
     const data = await res.json();
     if (!data || data.totalResponses === undefined) {
@@ -1000,27 +1000,28 @@ async function generatePDFReport() {
     const ratingImg = await captureCanvasAsImage("ratingChart");
     const trendImg  = await captureCanvasAsImage("trendChart");
 
-    // Gather comments and AI summary
+    // Comments + AI summary
     const comments = (data.feedbacks || []).map(f => f.comment || "").filter(Boolean);
-    const summary = await summarizeComments(comments); // returns { summaryOneLine, sampleComments, isAI, ... }
+    const summary = await summarizeComments(comments); // { summaryOneLine, sampleComments, isAI, ... }
 
-    // Load logo (logo.jpeg or base64 from loadLogoDataURL)
+    // Logo
     const logoData = await loadLogoDataURL();
 
     const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4", compress: true });
+    const pdf = new jsPDF({
+      orientation: "portrait",
+      unit: "pt",
+      format: "a4",
+      compress: true
+    });
 
-    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageWidth  = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
-    const margin = 36;
+    const margin     = 36;
+    const lineHeight = 12;
     let y = margin;
 
-    // Helper for safe text wrapping height
-    const lineHeight = 12;
-
-    // ---------------------------
-    // HEADER (logo left + BIT text)
-    // ---------------------------
+    // =============== HEADER (BIT + LOGO) ===============
     if (logoData) {
       try {
         const imgProps = pdf.getImageProperties(logoData);
@@ -1043,7 +1044,6 @@ async function generatePDFReport() {
 
         y += Math.max(logoH, 74);
       } catch (e) {
-        // If image loading fails, fall back to text header
         pdf.setFont("helvetica", "bold");
         pdf.setFontSize(16);
         pdf.text("BANGALORE INSTITUTE OF TECHNOLOGY", pageWidth / 2, y + 16, { align: "center" });
@@ -1060,7 +1060,6 @@ async function generatePDFReport() {
         y += 80;
       }
     } else {
-      // No logo: center the header
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(16);
       pdf.text("BANGALORE INSTITUTE OF TECHNOLOGY", pageWidth / 2, y + 16, { align: "center" });
@@ -1077,15 +1076,12 @@ async function generatePDFReport() {
       y += 80;
     }
 
-    // Divider line after header
     pdf.setLineWidth(0.7);
     pdf.setDrawColor(200, 200, 200);
     pdf.line(margin, y, pageWidth - margin, y);
     y += 18;
 
-    // ---------------------------
-    // Executive Summary (compact)
-    // ---------------------------
+    // =============== EXECUTIVE SUMMARY ===============
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(14);
     pdf.text("Executive Summary", margin, y);
@@ -1094,7 +1090,6 @@ async function generatePDFReport() {
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(10);
 
-    // concise lines: purpose, session, responses, avg rating, sentiment (AI)
     const execLines = [
       `Purpose: To measure student understanding & collect actionable feedback for teaching improvement.`,
       `Session: ${data.subject || "N/A"} — ${data.topic || "N/A"} (${data.className || "N/A"} ${data.section ? "(" + data.section + ")" : ""})`,
@@ -1102,6 +1097,7 @@ async function generatePDFReport() {
       `Responses: ${data.totalResponses} | Average Rating: ${data.avgRating ? data.avgRating.toFixed(1) + "/5" : "N/A"}`,
       `Sentiment: ${summary.summaryOneLine ? (summary.summaryOneLine.split(".")[0] + ".") : "Summary not available."}`
     ];
+
     execLines.forEach(line => {
       const wrapped = pdf.splitTextToSize(line, pageWidth - margin * 2);
       pdf.text(wrapped, margin, y);
@@ -1110,11 +1106,10 @@ async function generatePDFReport() {
 
     y += 8;
 
-    // ---------------------------
-    // Session Overview Table (very compact)
-    // ---------------------------
+    // =============== SESSION OVERVIEW TABLE ===============
     const tableX = margin;
     const tableW = pageWidth - margin * 2;
+
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(11);
     pdf.text("Session Overview", tableX, y);
@@ -1124,16 +1119,17 @@ async function generatePDFReport() {
     pdf.setFontSize(10);
 
     const overview = [
-      { k: "Session ID", v: sessionId },
-      { k: "Subject", v: data.subject || "N/A" },
-      { k: "Topic", v: data.topic || "N/A" },
+      { k: "Session ID",      v: sessionId },
+      { k: "Subject",         v: data.subject || "N/A" },
+      { k: "Topic",           v: data.topic || "N/A" },
       { k: "Class / Section", v: `${data.className || "N/A"} ${data.section ? "-" + data.section : ""}`.trim() },
-      { k: "Teacher", v: data.teacher || "N/A" },
-      { k: "Responses", v: String(data.totalResponses) }
+      { k: "Teacher",         v: data.teacher || "N/A" },
+      { k: "Responses",       v: String(data.totalResponses) }
     ];
 
     const col1W = 120;
     const col2W = tableW - col1W;
+
     overview.forEach(row => {
       pdf.setFillColor(248, 249, 252);
       pdf.rect(tableX, y - 10, col1W, 18, "F");
@@ -1151,21 +1147,17 @@ async function generatePDFReport() {
 
     y += 8;
 
-    // ---------------------------
-    // Key Stats cards (compact)
-    // ---------------------------
-    const statsY = y;
+    // =============== KEY STATS CARDS ===============
     const cardW = (pageWidth - margin * 2 - 20) / 3;
     const cardH = 48;
 
-    // Prepare values
     const totalResponses = data.totalResponses || 0;
-    const avgRating = data.avgRating ? parseFloat(data.avgRating) : 0;
-    const engagement = Math.min(100, Math.round((totalResponses / Math.max(1, 30)) * 100)); // simple derived metric
+    const avgRating      = data.avgRating ? parseFloat(data.avgRating) : 0;
+    const engagement     = Math.min(100, Math.round((totalResponses / Math.max(1, 30)) * 100));
 
     const statCards = [
-      { title: "Total Responses", value: String(totalResponses) },
-      { title: "Average Rating", value: avgRating ? avgRating.toFixed(1) + " / 5" : "N/A" },
+      { title: "Total Responses",   value: String(totalResponses) },
+      { title: "Average Rating",    value: avgRating ? avgRating.toFixed(1) + " / 5" : "N/A" },
       { title: "Engagement (est.)", value: `${engagement}%` }
     ];
 
@@ -1184,9 +1176,7 @@ async function generatePDFReport() {
 
     y += cardH + 18;
 
-    // ---------------------------
-    // Visual Analytics (charts)
-    // ---------------------------
+    // =============== VISUAL ANALYTICS (GRAPHS) ===============
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(13);
     pdf.text("Visual Analytics", margin, y);
@@ -1195,31 +1185,31 @@ async function generatePDFReport() {
     const chartW = (pageWidth - margin * 2 - 20) / 2;
     const chartH = chartW * 0.6;
 
-    if (ratingImg) pdf.addImage(ratingImg, "JPEG", margin, y, chartW, chartH);
-    else {
-      pdf.setFillColor(250,250,250);
+    if (ratingImg) {
+      pdf.addImage(ratingImg, "JPEG", margin, y, chartW, chartH);
+    } else {
+      pdf.setFillColor(250, 250, 250);
       pdf.rect(margin, y, chartW, chartH, "F");
       pdf.setFontSize(10);
-      pdf.setTextColor(130,130,130);
-      pdf.text("Rating Distribution Unavailable", margin + 10, y + chartH/2);
-      pdf.setTextColor(0,0,0);
+      pdf.setTextColor(130, 130, 130);
+      pdf.text("Rating Distribution Unavailable", margin + 10, y + chartH / 2);
+      pdf.setTextColor(0, 0, 0);
     }
 
-    if (trendImg) pdf.addImage(trendImg, "JPEG", margin + chartW + 20, y, chartW, chartH);
-    else {
-      pdf.setFillColor(250,250,250);
+    if (trendImg) {
+      pdf.addImage(trendImg, "JPEG", margin + chartW + 20, y, chartW, chartH);
+    } else {
+      pdf.setFillColor(250, 250, 250);
       pdf.rect(margin + chartW + 20, y, chartW, chartH, "F");
       pdf.setFontSize(10);
-      pdf.setTextColor(130,130,130);
-      pdf.text("Trend Chart Unavailable", margin + chartW + 30, y + chartH/2);
-      pdf.setTextColor(0,0,0);
+      pdf.setTextColor(130, 130, 130);
+      pdf.text("Trend Chart Unavailable", margin + chartW + 30, y + chartH / 2);
+      pdf.setTextColor(0, 0, 0);
     }
 
     y += chartH + 18;
 
-    // ---------------------------
-    // AI Insights + Actionable Recommendations (compact)
-    // ---------------------------
+    // =============== AI INSIGHTS + RECOMMENDATIONS ===============
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(13);
     pdf.text("AI-Powered Insights", margin, y);
@@ -1227,7 +1217,11 @@ async function generatePDFReport() {
 
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(10);
-    const insightLines = pdf.splitTextToSize(summary.summaryOneLine || "No insights available.", pageWidth - margin * 2);
+
+    const insightLines = pdf.splitTextToSize(
+      summary.summaryOneLine || "No insights available.",
+      pageWidth - margin * 2
+    );
     pdf.text(insightLines, margin, y);
     y += insightLines.length * lineHeight + 10;
 
@@ -1238,14 +1232,19 @@ async function generatePDFReport() {
 
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(10);
-    const recommendations = generateRecommendations(summary.summaryOneLine || "", data.avgRating || 0);
+
+    const recommendations = generateRecommendations(
+      summary.summaryOneLine || "",
+      data.avgRating || 0
+    );
+
     recommendations.forEach(rec => {
       const wrap = pdf.splitTextToSize("• " + rec, pageWidth - margin * 2);
       pdf.text(wrap, margin, y);
       y += wrap.length * lineHeight + 6;
     });
 
-    // --- End of Page 1 content. Move to Page 2 ---
+    // =============== PAGE 2 ===============
     pdf.addPage();
     y = margin;
 
@@ -1257,21 +1256,22 @@ async function generatePDFReport() {
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(10);
 
-    // Impact Assessment: short professional content (4–6 lines each for positives and improvements)
     const positives = [
       "Increased conceptual clarity for core topics identified by above-average ratings.",
       "Engagement indicators show active student participation for majority of attendees.",
       "Where examples were provided, students reported better comprehension."
     ];
+
     const improvements = [
-      "Certain subtopics showed lower understanding; targeted revision recommended.",
-      "A few students requested slower pace and additional worked examples.",
-      "Add short practice questions and summary notes to reinforce learning."
+      "Certain subtopics showed lower understanding; targeted revision is recommended.",
+      "Some students requested slower pace and additional worked examples.",
+      "Short practice questions and summary notes can further reinforce learning."
     ];
 
     pdf.setFont("helvetica", "bold");
     pdf.text("Positive Impact", margin, y);
     y += 12;
+
     pdf.setFont("helvetica", "normal");
     positives.forEach(p => {
       const wrap = pdf.splitTextToSize("• " + p, pageWidth - margin * 2);
@@ -1283,6 +1283,7 @@ async function generatePDFReport() {
     pdf.setFont("helvetica", "bold");
     pdf.text("Areas for Improvement", margin, y);
     y += 12;
+
     pdf.setFont("helvetica", "normal");
     improvements.forEach(p => {
       const wrap = pdf.splitTextToSize("• " + p, pageWidth - margin * 2);
@@ -1292,7 +1293,7 @@ async function generatePDFReport() {
 
     y += 8;
 
-    // Representative Student Comments (top 8) — minimal, cleaned, alternating background
+    // =============== REPRESENTATIVE COMMENTS ===============
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(13);
     pdf.text("Representative Student Comments (sample)", margin, y);
@@ -1303,57 +1304,62 @@ async function generatePDFReport() {
 
     const sampleComments = (summary.sampleComments || comments).slice(0, 8);
 
-    // helper to remove common emoji ranges to avoid PDF font/render issues
     const stripEmojis = (s) => {
       try {
-        return s.replace(/[\u{1F300}-\u{1F6FF}\u{1F900}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, "")
-                .replace(/\s+/g, " ").trim();
+        return s
+          .replace(/[\u{1F300}-\u{1F6FF}\u{1F900}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, "")
+          .replace(/\s+/g, " ")
+          .trim();
       } catch (e) {
-        // if regexp with u flag not supported in environment, fallback to original
         return s;
       }
     };
 
     sampleComments.forEach((c, idx) => {
       if (!c) return;
+
       let text = String(c).trim();
       text = stripEmojis(text);
-
-      // keep comments minimal (one or two short sentences) — truncate if too long
       if (text.length > 300) text = text.slice(0, 300) + "...";
 
       const wrapped = pdf.splitTextToSize(`"${text}"`, pageWidth - margin * 2 - 10);
 
-      // alternating background
       if (idx % 2 === 0) {
         pdf.setFillColor(250, 250, 250);
-        pdf.rect(margin, y - 6, pageWidth - margin * 2, wrapped.length * lineHeight + 10, "F");
+        pdf.rect(
+          margin,
+          y - 6,
+          pageWidth - margin * 2,
+          wrapped.length * lineHeight + 10,
+          "F"
+        );
       }
 
       pdf.setTextColor(30, 30, 30);
       pdf.text(wrapped, margin + 6, y + 4);
       y += wrapped.length * lineHeight + 14;
 
-      // page break safeguard
       if (y > pageHeight - 90) {
         pdf.addPage();
         y = margin;
       }
     });
 
-    // Final short concluding paragraph
-    const conclusion = "Conclusion: The feedback shows a generally positive reception with highlighted areas for improvement. Implementing recommended actions will improve clarity and learning outcomes in subsequent sessions.";
+    // =============== FINAL SUMMARY ===============
+    const conclusion =
+      "Conclusion: The feedback shows a generally positive reception with clear areas for refinement. Implementing the recommended actions is expected to improve conceptual clarity, engagement levels, and overall learning outcomes in future sessions.";
+
     const conclWrapped = pdf.splitTextToSize(conclusion, pageWidth - margin * 2);
+
     pdf.setFont("helvetica", "bold");
     pdf.text("Final Summary", margin, y);
     y += 14;
+
     pdf.setFont("helvetica", "normal");
     pdf.text(conclWrapped, margin, y);
     y += conclWrapped.length * lineHeight + 10;
 
-    // ---------------------------
-    // FOOTER: add on every page with page numbers
-    // ---------------------------
+    // =============== FOOTER ON EACH PAGE ===============
     const pageCount = pdf.getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {
       pdf.setPage(i);
@@ -1364,11 +1370,18 @@ async function generatePDFReport() {
       pdf.setFontSize(8);
       pdf.setTextColor(120, 120, 120);
       pdf.text("Confidential - Academic Use Only", margin, footY);
-      pdf.text(`Generated by Real-Time Classroom Feedback System`, pageWidth - margin, footY, { align: "right" });
-      pdf.text(`Page ${i} of ${pageCount}`, pageWidth / 2, footY + 9, { align: "center" });
+      pdf.text(
+        "Generated by Real-Time Classroom Feedback System",
+        pageWidth - margin,
+        footY,
+        { align: "right" }
+      );
+      pdf.text(`Page ${i} of ${pageCount}`, pageWidth / 2, footY + 9, {
+        align: "center"
+      });
     }
 
-    // Save file
+    // Save
     pdf.save(`${sessionId}_BIT_Impact_Report.pdf`);
   } catch (err) {
     console.error("PDF generation error:", err);
