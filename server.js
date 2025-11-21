@@ -282,93 +282,115 @@ app.post("/api/summarize-comments", async (req, res) => {
 
     console.log(`🤖 AI summarization requested for ${comments.length} comments`);
 
-    // Use a simpler, more reliable model
-    const modelUrl = "https://api-inference.huggingface.co/models/facebook/bart-large-cnn";
-    
-    try {
-      // Race between fetch and timeout (Node.js compatible)
-      const fetchPromise = fetch(modelUrl, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${process.env.HUGGING_FACE_TOKEN}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          inputs: commentText,
-          parameters: {
-            max_length: 80,  // Reduced for better performance
-            min_length: 20,
-            do_sample: false
-          }
-        })
-      });
-
-      const response = await Promise.race([fetchPromise, timeout(15000)]);
-
-      console.log(`HF API Response Status: ${response.status}`);
-
-      if (response.status === 503) {
-        // Model is loading
-        console.log("Model is loading, using fallback");
-        const fallback = fallbackSummarizeComments(comments);
-        return res.json({
-          success: true,
-          summary: fallback.summaryOneLine,
-          isFallback: true,
-          note: "AI model is loading, used rule-based analysis"
-        });
+    // Try multiple working model endpoints
+    const modelEndpoints = [
+      {
+        url: "https://api-inference.huggingface.co/models/microsoft/DialoGPT-medium",
+        type: "conversational"
+      },
+      {
+        url: "https://api-inference.huggingface.co/models/google/pegasus-xsum", 
+        type: "summarization"
+      },
+      {
+        url: "https://api-inference.huggingface.co/models/sshleifer/distilbart-cnn-12-6",
+        type: "summarization"
       }
+    ];
 
-      if (!response.ok) {
-        console.log(`HF API Error: ${response.status} ${response.statusText}`);
-        const fallback = fallbackSummarizeComments(comments);
-        return res.json({
-          success: true,
-          summary: fallback.summaryOneLine,
-          isFallback: true,
-          note: `AI service unavailable (${response.status})`
+    let lastError = null;
+
+    for (const endpoint of modelEndpoints) {
+      try {
+        console.log(`Trying model: ${endpoint.url}`);
+        
+        let requestBody;
+        if (endpoint.type === "conversational") {
+          // Use conversational approach for DialoGPT
+          requestBody = JSON.stringify({
+            inputs: {
+              text: `Please summarize these student feedback comments in one paragraph: ${commentText}`,
+              past_user_inputs: [],
+              generated_responses: []
+            }
+          });
+        } else {
+          // Standard summarization for other models
+          requestBody = JSON.stringify({
+            inputs: commentText,
+            parameters: {
+              max_length: 80,
+              min_length: 20,
+              do_sample: false
+            }
+          });
+        }
+
+        const fetchPromise = fetch(endpoint.url, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${process.env.HUGGING_FACE_TOKEN}`,
+            "Content-Type": "application/json"
+          },
+          body: requestBody
         });
+
+        const response = await Promise.race([fetchPromise, timeout(10000)]);
+
+        console.log(`Model ${endpoint.url} Response Status: ${response.status}`);
+
+        if (response.status === 503) {
+          console.log("Model is loading, trying next model...");
+          continue;
+        }
+
+        if (!response.ok) {
+          console.log(`Model ${endpoint.url} failed: ${response.status} ${response.statusText}`);
+          lastError = `HTTP ${response.status}`;
+          continue; // Try next model
+        }
+
+        const result = await response.json();
+        console.log("Model response:", JSON.stringify(result).substring(0, 300));
+
+        let summary = null;
+
+        // Extract summary based on model type
+        if (endpoint.type === "conversational") {
+          summary = result.generated_text;
+        } else {
+          summary = result[0]?.summary_text || result.summary_text;
+        }
+
+        if (summary) {
+          console.log("✅ AI summarization successful with", endpoint.url);
+          return res.json({
+            success: true,
+            summary: summary,
+            isFallback: false,
+            model: endpoint.url
+          });
+        } else {
+          console.log("No summary in response from", endpoint.url);
+          lastError = "Empty response";
+        }
+
+      } catch (modelError) {
+        console.log(`Model ${endpoint.url} error:`, modelError.message);
+        lastError = modelError.message;
+        continue; // Try next model
       }
-
-      const result = await response.json();
-      console.log("HF API Result:", JSON.stringify(result).substring(0, 200));
-
-      const summary = result[0]?.summary_text;
-
-      if (!summary) {
-        console.log("No summary in response");
-        const fallback = fallbackSummarizeComments(comments);
-        return res.json({
-          success: true,
-          summary: fallback.summaryOneLine,
-          isFallback: true,
-          note: "AI returned empty summary"
-        });
-      }
-
-      console.log("✅ AI summarization successful");
-      return res.json({
-        success: true,
-        summary: summary,
-        isFallback: false
-      });
-
-    } catch (fetchError) {
-      console.error("Fetch error:", fetchError.name, fetchError.message);
-      
-      if (fetchError.message === 'Request timeout') {
-        console.log("Request timeout, using fallback");
-        const fallback = fallbackSummarizeComments(comments);
-        return res.json({
-          success: true,
-          summary: fallback.summaryOneLine,
-          isFallback: true,
-          note: "AI request timeout"
-        });
-      }
-
-      throw fetchError; // Re-throw to be caught by outer catch
     }
+
+    // If all models failed, use fallback
+    console.log("All AI models failed, using fallback. Last error:", lastError);
+    const fallback = fallbackSummarizeComments(comments);
+    return res.json({
+      success: true,
+      summary: fallback.summaryOneLine,
+      isFallback: true,
+      note: "AI service unavailable, using rule-based analysis"
+    });
 
   } catch (err) {
     console.error("AI Summarization overall error:", err.message);
