@@ -255,6 +255,11 @@ const fetch = (...args) =>
 
 // ===== AI SUMMARIZATION USING HUGGINGFACE =====
 app.post("/api/summarize-comments", async (req, res) => {
+  // Create a timeout promise for Node.js compatibility
+  const timeout = (ms) => new Promise((_, reject) => {
+    setTimeout(() => reject(new Error('Request timeout')), ms);
+  });
+
   try {
     const { comments } = req.body;
 
@@ -263,10 +268,26 @@ app.post("/api/summarize-comments", async (req, res) => {
     }
 
     const commentText = comments.slice(0, 50).join(". ");
+    
+    // Validate token
+    if (!process.env.HUGGING_FACE_TOKEN || !process.env.HUGGING_FACE_TOKEN.startsWith('hf_')) {
+      console.log("Invalid or missing Hugging Face token");
+      const fallback = fallbackSummarizeComments(comments);
+      return res.json({
+        success: true,
+        summary: fallback.summaryOneLine,
+        isFallback: true
+      });
+    }
 
-    const response = await fetch(
-      "https://api-inference.huggingface.co/models/facebook/bart-large-cnn",
-      {
+    console.log(`🤖 AI summarization requested for ${comments.length} comments`);
+
+    // Use a simpler, more reliable model
+    const modelUrl = "https://api-inference.huggingface.co/models/facebook/bart-large-cnn";
+    
+    try {
+      // Race between fetch and timeout (Node.js compatible)
+      const fetchPromise = fetch(modelUrl, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${process.env.HUGGING_FACE_TOKEN}`,
@@ -275,55 +296,95 @@ app.post("/api/summarize-comments", async (req, res) => {
         body: JSON.stringify({
           inputs: commentText,
           parameters: {
-            max_length: 120,
-            min_length: 40,
+            max_length: 80,  // Reduced for better performance
+            min_length: 20,
             do_sample: false
           }
         })
+      });
+
+      const response = await Promise.race([fetchPromise, timeout(15000)]);
+
+      console.log(`HF API Response Status: ${response.status}`);
+
+      if (response.status === 503) {
+        // Model is loading
+        console.log("Model is loading, using fallback");
+        const fallback = fallbackSummarizeComments(comments);
+        return res.json({
+          success: true,
+          summary: fallback.summaryOneLine,
+          isFallback: true,
+          note: "AI model is loading, used rule-based analysis"
+        });
       }
-    );
 
-    if (!response.ok) {
-      console.log("HF failed:", response.status);
-      const fallback = fallbackSummarizeComments(comments);
+      if (!response.ok) {
+        console.log(`HF API Error: ${response.status} ${response.statusText}`);
+        const fallback = fallbackSummarizeComments(comments);
+        return res.json({
+          success: true,
+          summary: fallback.summaryOneLine,
+          isFallback: true,
+          note: `AI service unavailable (${response.status})`
+        });
+      }
+
+      const result = await response.json();
+      console.log("HF API Result:", JSON.stringify(result).substring(0, 200));
+
+      const summary = result[0]?.summary_text;
+
+      if (!summary) {
+        console.log("No summary in response");
+        const fallback = fallbackSummarizeComments(comments);
+        return res.json({
+          success: true,
+          summary: fallback.summaryOneLine,
+          isFallback: true,
+          note: "AI returned empty summary"
+        });
+      }
+
+      console.log("✅ AI summarization successful");
       return res.json({
         success: true,
-        summary: fallback.summaryOneLine,
-        isFallback: true
+        summary: summary,
+        isFallback: false
       });
+
+    } catch (fetchError) {
+      console.error("Fetch error:", fetchError.name, fetchError.message);
+      
+      if (fetchError.message === 'Request timeout') {
+        console.log("Request timeout, using fallback");
+        const fallback = fallbackSummarizeComments(comments);
+        return res.json({
+          success: true,
+          summary: fallback.summaryOneLine,
+          isFallback: true,
+          note: "AI request timeout"
+        });
+      }
+
+      throw fetchError; // Re-throw to be caught by outer catch
     }
-
-    const result = await response.json();
-    const summary = result[0]?.summary_text;
-
-    if (!summary) {
-      const fallback = fallbackSummarizeComments(comments);
-      return res.json({
-        success: true,
-        summary: fallback.summaryOneLine,
-        isFallback: true
-      });
-    }
-
-    res.json({
-      success: true,
-      summary,
-      isFallback: false
-    });
 
   } catch (err) {
-    console.error("AI Summarization Error:", err);
+    console.error("AI Summarization overall error:", err.message);
     const fallback = fallbackSummarizeComments(req.body.comments || []);
-    res.json({
+    return res.json({
       success: true,
       summary: fallback.summaryOneLine,
-      isFallback: true
+      isFallback: true,
+      note: "AI service error"
     });
   }
 });
 
 
 // Enhanced keyword-based fallback (KEEP THIS - it's your original working code)
+// Enhanced keyword-based fallback
 function fallbackSummarizeComments(comments) {
   if (!comments || comments.length === 0) {
     return {
@@ -332,46 +393,67 @@ function fallbackSummarizeComments(comments) {
     };
   }
 
-  const text = comments.join(" ").toLowerCase();
-  const totalComments = comments.length;
-  
-  // Count occurrences of specific issues
-  const topicIssues = (text.match(/topic|concept|principle|theory/g) || []).length;
-  const exampleIssues = (text.match(/example|instance|case/g) || []).length;
-  const diagramIssues = (text.match(/diagram|graph|chart|visual/g) || []).length;
-  const paceIssues = (text.match(/fast|slow|pace|speed/g) || []).length;
-  const understandingIssues = (text.match(/not understand|confus|difficult|hard|unclear|don't get/g) || []).length;
+  try {
+    const text = comments.join(" ").toLowerCase();
+    const totalComments = comments.length;
+    
+    // Enhanced keyword analysis
+    const understandingIssues = (text.match(/not understand|confus|difficult|hard|unclear|don't get|didn't get/g) || []).length;
+    const paceIssues = (text.match(/fast|slow|pace|speed|rushed|too quick/g) || []).length;
+    const exampleRequests = (text.match(/example|instance|case|demonstrat|show how/g) || []).length;
+    const clarityPositive = (text.match(/clear|well explained|good|understand|helpful|great|excellent/g) || []).length;
+    const visualIssues = (text.match(/diagram|graph|chart|visual|picture|see|show/g) || []).length;
 
-  let issues = [];
-  
-  if (understandingIssues > totalComments * 0.3) {
-    issues.push(`Many students (approximately ${Math.round(understandingIssues/totalComments*100)}%) found the material difficult to understand`);
-  }
-  
-  if (topicIssues > 0) {
-    issues.push(`Specific topics/concepts were challenging`);
-  }
-  
-  if (exampleIssues > 0) {
-    issues.push(`Examples used in class need clarification`);
-  }
-  
-  if (diagramIssues > 0) {
-    issues.push(`Visual aids/diagrams were confusing`);
-  }
-  
-  if (paceIssues > 0) {
-    issues.push(`Teaching pace needs adjustment`);
-  }
+    let issues = [];
+    let positives = [];
 
-  let summary = issues.length > 0 
-    ? `Based on ${totalComments} comments: ${issues.join("; ")}.`
-    : `Students provided ${totalComments} comments with mixed feedback.`;
+    // Positive feedback
+    if (clarityPositive > totalComments * 0.3) {
+      positives.push(`Most students (${Math.round(clarityPositive/totalComments*100)}%) found the session clear and helpful`);
+    }
 
-  return {
-    summaryOneLine: summary,
-    sampleComments: comments.slice(0, 8)
-  };
+    // Issues
+    if (understandingIssues > totalComments * 0.2) {
+      issues.push(`Some students (${Math.round(understandingIssues/totalComments*100)}%) found concepts difficult to understand`);
+    }
+    
+    if (paceIssues > 0) {
+      issues.push(`Teaching pace needs adjustment based on feedback`);
+    }
+    
+    if (exampleRequests > 0) {
+      issues.push(`Students requested more practical examples`);
+    }
+    
+    if (visualIssues > 0) {
+      issues.push(`Visual aids could be enhanced for better understanding`);
+    }
+
+    let summary = "";
+    
+    if (positives.length > 0) {
+      summary += positives.join(". ") + ". ";
+    }
+    
+    if (issues.length > 0) {
+      summary += "Areas for improvement: " + issues.join("; ") + ".";
+    }
+
+    if (!summary.trim()) {
+      summary = `Received ${totalComments} comments with mixed feedback. Consider reviewing specific student suggestions for detailed insights.`;
+    }
+
+    return {
+      summaryOneLine: summary,
+      sampleComments: comments.slice(0, 6) // Show fewer samples for fallback
+    };
+  } catch (error) {
+    console.error("Fallback summarization error:", error);
+    return {
+      summaryOneLine: `Analysis completed for ${comments.length} student comments. Review individual feedback for specific insights.`,
+      sampleComments: comments.slice(0, 4)
+    };
+  }
 }
 
 // NO enhanceSummaryWithKeywords FUNCTION - DELETED
