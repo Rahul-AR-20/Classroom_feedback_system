@@ -998,14 +998,14 @@ async function generatePDFReport() {
 
     // Capture charts as images
     const ratingImg = await captureCanvasAsImage("ratingChart");
-    const trendImg  = await captureCanvasAsImage("trendChart");
 
-    // Comments + AI summary
+    // Comments analysis
     const comments = (data.feedbacks || []).map(f => f.comment || "").filter(Boolean);
-    const summary = await summarizeComments(comments); // { summaryOneLine, sampleComments, isAI, ... }
+    const summary = await summarizeComments(comments);
 
-    // Logo
-    const logoData = await loadLogoDataURL();
+    // Enhanced impact analysis
+    const impactAnalysis = analyzeImpact(data.feedbacks, data.avgRating, data.totalResponses);
+    const teachingEffectiveness = calculateTeachingEffectiveness(data.avgRating, data.totalResponses, impactAnalysis);
 
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF({
@@ -1015,374 +1015,400 @@ async function generatePDFReport() {
       compress: true
     });
 
-    const pageWidth  = pdf.internal.pageSize.getWidth();
+    const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
-    const margin     = 36;
+    const margin = 36;
     const lineHeight = 12;
     let y = margin;
 
-    // =============== HEADER (BIT + LOGO) ===============
-    if (logoData) {
-      try {
-        const imgProps = pdf.getImageProperties(logoData);
-        const logoW = 60;
-        const logoH = (imgProps.height * logoW) / imgProps.width;
-        pdf.addImage(logoData, "JPEG", margin, y, logoW, logoH);
+    // =============== PAGE 1: EXECUTIVE SUMMARY ===============
+    
+    // Header
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(18);
+    pdf.text("FEEDBACK IMPACT REPORT", pageWidth / 2, y, { align: "center" });
+    y += 25;
 
-        pdf.setFont("helvetica", "bold");
-        pdf.setFontSize(16);
-        pdf.text("BANGALORE INSTITUTE OF TECHNOLOGY", margin + logoW + 15, y + 16);
+    // Session Info
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(10);
+    pdf.text(`Session: ${sessionId}`, margin, y);
+    pdf.text(`Date: ${new Date().toLocaleDateString()}`, pageWidth - margin, y, { align: "right" });
+    y += 20;
 
-        pdf.setFont("helvetica", "normal");
-        pdf.setFontSize(10);
-        pdf.text("K.R. Road, V.V. Puram, Bengaluru - 560004", margin + logoW + 15, y + 32);
-        pdf.text("Department of Information Science & Engineering", margin + logoW + 15, y + 46);
+    // Impact Score
+    const scoreBoxW = 100;
+    const scoreBoxH = 80;
+    const scoreX = pageWidth / 2 - scoreBoxW / 2;
+    
+    pdf.setFillColor(248, 249, 255);
+    pdf.roundedRect(scoreX, y, scoreBoxW, scoreBoxH, 8, 8, "F");
+    pdf.setDrawColor(67, 97, 238);
+    pdf.setLineWidth(2);
+    pdf.roundedRect(scoreX, y, scoreBoxW, scoreBoxH, 8, 8, "S");
 
-        pdf.setFontSize(11);
-        pdf.setFont("helvetica", "bold");
-        pdf.text("STUDENT FEEDBACK — IMPACT ANALYSIS REPORT", margin + logoW + 15, y + 64);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(28);
+    pdf.setTextColor(67, 97, 238);
+    pdf.text(`${teachingEffectiveness.score}%`, pageWidth / 2, y + 35, { align: "center" });
 
-        y += Math.max(logoH, 74);
-      } catch (e) {
-        pdf.setFont("helvetica", "bold");
-        pdf.setFontSize(16);
-        pdf.text("BANGALORE INSTITUTE OF TECHNOLOGY", pageWidth / 2, y + 16, { align: "center" });
+    pdf.setFontSize(11);
+    pdf.setTextColor(100, 100, 100);
+    pdf.text("TEACHING IMPACT", pageWidth / 2, y + 55, { align: "center" });
+    
+    pdf.setFontSize(9);
+    pdf.text(teachingEffectiveness.level.toUpperCase(), pageWidth / 2, y + 68, { align: "center" });
 
-        pdf.setFont("helvetica", "normal");
-        pdf.setFontSize(10);
-        pdf.text("K.R. Road, V.V. Puram, Bengaluru - 560004", pageWidth / 2, y + 34, { align: "center" });
-        pdf.text("Department of Information Science & Engineering", pageWidth / 2, y + 48, { align: "center" });
+    y += scoreBoxH + 25;
 
-        pdf.setFontSize(11);
-        pdf.setFont("helvetica", "bold");
-        pdf.text("STUDENT FEEDBACK — IMPACT ANALYSIS REPORT", pageWidth / 2, y + 66, { align: "center" });
+    // Quick Stats
+    const stats = [
+      { label: "Responses", value: data.totalResponses },
+      { label: "Avg Rating", value: data.avgRating ? data.avgRating.toFixed(1) + "/5" : "N/A" },
+      { label: "Understanding", value: impactAnalysis.understandingLevel }
+    ];
 
-        y += 80;
-      }
-    } else {
+    const statW = (pageWidth - margin * 2) / 3;
+    let statX = margin;
+
+    stats.forEach(stat => {
+      pdf.setFillColor(245, 247, 250);
+      pdf.roundedRect(statX, y, statW - 10, 40, 5, 5, "F");
+      
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(16);
-      pdf.text("BANGALORE INSTITUTE OF TECHNOLOGY", pageWidth / 2, y + 16, { align: "center" });
+      pdf.setTextColor(0, 0, 0);
+      pdf.text(stat.value, statX + (statW - 10) / 2, y + 20, { align: "center" });
+      
+      pdf.setFontSize(8);
+      pdf.setTextColor(100, 100, 100);
+      pdf.text(stat.label, statX + (statW - 10) / 2, y + 32, { align: "center" });
+      
+      statX += statW;
+    });
 
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(10);
-      pdf.text("K.R. Road, V.V. Puram, Bengaluru - 560004", pageWidth / 2, y + 34, { align: "center" });
-      pdf.text("Department of Information Science & Engineering", pageWidth / 2, y + 48, { align: "center" });
+    y += 60;
 
-      pdf.setFontSize(11);
-      pdf.setFont("helvetica", "bold");
-      pdf.text("STUDENT FEEDBACK — IMPACT ANALYSIS REPORT", pageWidth / 2, y + 66, { align: "center" });
-
-      y += 80;
+    // Rating Chart
+    if (ratingImg) {
+      const chartW = pageWidth - margin * 2;
+      const chartH = 120;
+      pdf.addImage(ratingImg, "JPEG", margin, y, chartW, chartH);
+      y += chartH + 20;
     }
 
-    pdf.setLineWidth(0.7);
-    pdf.setDrawColor(200, 200, 200);
-    pdf.line(margin, y, pageWidth - margin, y);
-    y += 18;
-
-    // =============== EXECUTIVE SUMMARY ===============
+    // Key Insights
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(14);
-    pdf.text("Executive Summary", margin, y);
-    y += 16;
+    pdf.text("KEY INSIGHTS", margin, y);
+    y += 20;
 
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(10);
-
-// Executive Summary – interpretation only
-     const execSummaryLines = pdf.splitTextToSize([
-  "This report summarizes student feedback collected to evaluate teaching effectiveness and learning outcomes.",
-  `The session received ${data.totalResponses} responses, indicating ${data.totalResponses > 20 ? "strong" : "moderate"} participation.`,
-  `Overall understanding was rated at ${data.avgRating ? data.avgRating.toFixed(1) + "/5" : "N/A"}, reflecting the class's grasp of the topic.`,
-  `AI analysis indicates: ${summary.summaryOneLine || "No AI summary available."}`,
-  "The feedback highlights both strengths and specific areas where further clarification and reinforcement could enhance learning."
-].join(" "), pageWidth - margin * 2);
-
-  pdf.text(execSummaryLines, margin, y);
-y += execSummaryLines.length * lineHeight + 10;
-
-    // =============== SESSION OVERVIEW TABLE ===============
-    const tableX = margin;
-    const tableW = pageWidth - margin * 2;
-
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(11);
-    pdf.text("Session Overview", tableX, y);
-    y += 14;
-
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(10);
-
-    const overview = [
-      { k: "Session ID",      v: sessionId },
-      { k: "Subject",         v: data.subject || "N/A" },
-      { k: "Topic",           v: data.topic || "N/A" },
-      { k: "Class / Section", v: `${data.className || "N/A"} ${data.section ? "-" + data.section : ""}`.trim() },
-      { k: "Teacher",         v: data.teacher || "N/A" },
-      { k: "Responses",       v: String(data.totalResponses) }
+    
+    const insights = [
+      `📊 ${impactAnalysis.positivePercentage}% of students responded positively`,
+      `🎯 ${teachingEffectiveness.strengths.length} key strengths identified`,
+      `🔄 ${teachingEffectiveness.improvements.length} areas for improvement`,
+      `💡 Main themes: ${impactAnalysis.topThemes.join(", ")}`
     ];
 
-    const col1W = 120;
-    const col2W = tableW - col1W;
+    insights.forEach(insight => {
+      pdf.text(insight, margin + 10, y);
+      y += 15;
+    });
 
-    overview.forEach(row => {
-      pdf.setFillColor(248, 249, 252);
-      pdf.rect(tableX, y - 10, col1W, 18, "F");
-      pdf.setFillColor(255, 255, 255);
-      pdf.rect(tableX + col1W, y - 10, col2W, 18, "F");
+    y += 10;
 
+    // Student Feedback Summary
+    if (summary.summaryOneLine) {
       pdf.setFont("helvetica", "bold");
-      pdf.text(row.k, tableX + 6, y + 4);
+      pdf.setFontSize(12);
+      pdf.text("STUDENT FEEDBACK SUMMARY", margin, y);
+      y += 16;
+
       pdf.setFont("helvetica", "normal");
-      const vwrap = pdf.splitTextToSize(row.v, col2W - 12);
-      pdf.text(vwrap, tableX + col1W + 6, y + 4);
-
-      y += 20;
-    });
-
-    y += 8;
-
-    // =============== KEY STATS CARDS ===============
-    const cardW = (pageWidth - margin * 2 - 20) / 3;
-    const cardH = 48;
-
-    const totalResponses = data.totalResponses || 0;
-    const avgRating      = data.avgRating ? parseFloat(data.avgRating) : 0;
-    const engagement     = Math.min(100, Math.round((totalResponses / Math.max(1, 30)) * 100));
-
-    const statCards = [
-      { title: "Total Responses",   value: String(totalResponses) },
-      { title: "Average Rating",    value: avgRating ? avgRating.toFixed(1) + " / 5" : "N/A" },
-      { title: "Engagement (est.)", value: `${engagement}%` }
-    ];
-
-    let sx = margin;
-    statCards.forEach(card => {
-      pdf.setFillColor(245, 247, 250);
-      pdf.roundedRect(sx, y, cardW, cardH, 4, 4, "F");
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(11);
-      pdf.text(card.title, sx + 8, y + 16);
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(14);
-      pdf.text(card.value, sx + 8, y + 36);
-      sx += cardW + 10;
-    });
-
-    y += cardH + 18;
-
-    // =============== VISUAL ANALYTICS (GRAPHS) ===============
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(13);
-    pdf.text("Visual Analytics", margin, y);
-    y += 14;
-
-    const chartW = (pageWidth - margin * 2 - 20) / 2;
-    const chartH = chartW * 0.6;
-
-    if (ratingImg) {
-      pdf.addImage(ratingImg, "JPEG", margin, y, chartW, chartH);
-    } else {
-      pdf.setFillColor(250, 250, 250);
-      pdf.rect(margin, y, chartW, chartH, "F");
       pdf.setFontSize(10);
-      pdf.setTextColor(130, 130, 130);
-      pdf.text("Rating Distribution Unavailable", margin + 10, y + chartH / 2);
-      pdf.setTextColor(0, 0, 0);
+      const summaryLines = pdf.splitTextToSize(summary.summaryOneLine, pageWidth - margin * 2);
+      pdf.text(summaryLines, margin, y);
+      y += summaryLines.length * lineHeight + 10;
     }
 
-    if (trendImg) {
-      pdf.addImage(trendImg, "JPEG", margin + chartW + 20, y, chartW, chartH);
-    } else {
-      pdf.setFillColor(250, 250, 250);
-      pdf.rect(margin + chartW + 20, y, chartW, chartH, "F");
-      pdf.setFontSize(10);
-      pdf.setTextColor(130, 130, 130);
-      pdf.text("Trend Chart Unavailable", margin + chartW + 30, y + chartH / 2);
-      pdf.setTextColor(0, 0, 0);
-    }
-
-    y += chartH + 18;
-
-    // =============== AI INSIGHTS + RECOMMENDATIONS ===============
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(13);
-    pdf.text("AI-Powered Insights", margin, y);
-    y += 14;
-
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(10);
-
-    const insightLines = pdf.splitTextToSize(
-      summary.summaryOneLine || "No insights available.",
-      pageWidth - margin * 2
-    );
-    pdf.text(insightLines, margin, y);
-    y += insightLines.length * lineHeight + 10;
-
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(12);
-    pdf.text("Actionable Recommendations", margin, y);
-    y += 14;
-
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(10);
-
-    const recommendations = generateRecommendations(
-      summary.summaryOneLine || "",
-      data.avgRating || 0
-    );
-
-    recommendations.forEach(rec => {
-      const wrap = pdf.splitTextToSize("• " + rec, pageWidth - margin * 2);
-      pdf.text(wrap, margin, y);
-      y += wrap.length * lineHeight + 6;
-    });
-
-    // =============== PAGE 2 ===============
+    // =============== PAGE 2: ACTION PLAN ===============
     pdf.addPage();
     y = margin;
 
+    // Teaching Strengths
     pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(13);
-    pdf.text("Impact Assessment", margin, y);
-    y += 16;
+    pdf.setFontSize(16);
+    pdf.text("WHAT'S WORKING WELL", margin, y);
+    y += 25;
 
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(10);
+    if (teachingEffectiveness.strengths.length > 0) {
+      teachingEffectiveness.strengths.forEach((strength, index) => {
+        pdf.setFillColor(240, 249, 235);
+        pdf.rect(margin, y, pageWidth - margin * 2, 25, "F");
+        
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(11);
+        pdf.setTextColor(56, 158, 13);
+        pdf.text(`✓ ${strength.title}`, margin + 10, y + 16);
+        
+        y += 30;
+      });
+    } else {
+      pdf.setFont("helvetica", "italic");
+      pdf.setFontSize(10);
+      pdf.setTextColor(150, 150, 150);
+      pdf.text("No specific strengths identified in this session", margin, y);
+      y += 20;
+    }
 
-    const positives = [
-      "Increased conceptual clarity for core topics identified by above-average ratings.",
-      "Engagement indicators show active student participation for majority of attendees.",
-      "Where examples were provided, students reported better comprehension."
-    ];
+    y += 15;
 
-    const improvements = [
-      "Certain subtopics showed lower understanding; targeted revision is recommended.",
-      "Some students requested slower pace and additional worked examples.",
-      "Short practice questions and summary notes can further reinforce learning."
-    ];
-
+    // Areas for Improvement
     pdf.setFont("helvetica", "bold");
-    pdf.text("Positive Impact", margin, y);
-    y += 12;
+    pdf.setFontSize(16);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text("AREAS TO IMPROVE", margin, y);
+    y += 25;
 
-    pdf.setFont("helvetica", "normal");
-    positives.forEach(p => {
-      const wrap = pdf.splitTextToSize("• " + p, pageWidth - margin * 2);
-      pdf.text(wrap, margin, y);
-      y += wrap.length * lineHeight + 6;
+    if (teachingEffectiveness.improvements.length > 0) {
+      teachingEffectiveness.improvements.forEach((improvement, index) => {
+        pdf.setFillColor(255, 245, 245);
+        pdf.rect(margin, y, pageWidth - margin * 2, 30, "F");
+        
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(11);
+        pdf.setTextColor(219, 56, 43);
+        pdf.text(`↻ ${improvement.area}`, margin + 10, y + 12);
+        
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(9);
+        pdf.setTextColor(80, 80, 80);
+        const actionLines = pdf.splitTextToSize(improvement.action, pageWidth - margin * 2 - 20);
+        pdf.text(actionLines, margin + 10, y + 22);
+        
+        y += 35 + (actionLines.length - 1) * lineHeight;
+      });
+    } else {
+      pdf.setFont("helvetica", "italic");
+      pdf.setFontSize(10);
+      pdf.setTextColor(150, 150, 150);
+      pdf.text("No major improvement areas identified", margin, y);
+      y += 20;
+    }
+
+    y += 20;
+
+    // Quick Action Plan
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(14);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text("QUICK ACTION PLAN", margin, y);
+    y += 20;
+
+    const quickActions = generateQuickActions(teachingEffectiveness, impactAnalysis);
+    quickActions.forEach((action, index) => {
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(10);
+      pdf.setTextColor(67, 97, 238);
+      pdf.text(`${index + 1}.`, margin, y);
+      
+      pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(0, 0, 0);
+      pdf.text(action, margin + 15, y);
+      
+      y += 15;
     });
 
-    y += 6;
-    pdf.setFont("helvetica", "bold");
-    pdf.text("Areas for Improvement", margin, y);
-    y += 12;
+    y += 10;
 
-    pdf.setFont("helvetica", "normal");
-    improvements.forEach(p => {
-      const wrap = pdf.splitTextToSize("• " + p, pageWidth - margin * 2);
-      pdf.text(wrap, margin, y);
-      y += wrap.length * lineHeight + 6;
-    });
+    // Sample Comments (if space permits)
+    if (y < pageHeight - 100) {
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(12);
+      pdf.text("SAMPLE STUDENT COMMENTS", margin, y);
+      y += 16;
 
-    y += 8;
-
-    // =============== REPRESENTATIVE COMMENTS ===============
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(13);
-    pdf.text("Representative Student Comments (sample)", margin, y);
-    y += 16;
-
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(10);
-
-    const sampleComments = (summary.sampleComments || comments).slice(0, 8);
-
-    const stripEmojis = (s) => {
-      try {
-        return s
-          .replace(/[\u{1F300}-\u{1F6FF}\u{1F900}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, "")
-          .replace(/\s+/g, " ")
-          .trim();
-      } catch (e) {
-        return s;
-      }
-    };
-
-    sampleComments.forEach((c, idx) => {
-      if (!c) return;
-
-      let text = String(c).trim();
-      text = stripEmojis(text);
-      if (text.length > 300) text = text.slice(0, 300) + "...";
-
-      const wrapped = pdf.splitTextToSize(`"${text}"`, pageWidth - margin * 2 - 10);
-
-      if (idx % 2 === 0) {
-        pdf.setFillColor(250, 250, 250);
-        pdf.rect(
-          margin,
-          y - 6,
-          pageWidth - margin * 2,
-          wrapped.length * lineHeight + 10,
-          "F"
-        );
-      }
-
-      pdf.setTextColor(30, 30, 30);
-      pdf.text(wrapped, margin + 6, y + 4);
-      y += wrapped.length * lineHeight + 14;
-
-      if (y > pageHeight - 90) {
-        pdf.addPage();
-        y = margin;
-      }
-    });
-
-    // =============== FINAL SUMMARY ===============
-    const conclusion =
-      "Conclusion: The feedback shows a generally positive reception with clear areas for refinement. Implementing the recommended actions is expected to improve conceptual clarity, engagement levels, and overall learning outcomes in future sessions.";
-
-    const conclWrapped = pdf.splitTextToSize(conclusion, pageWidth - margin * 2);
-
-    pdf.setFont("helvetica", "bold");
-    pdf.text("Final Summary", margin, y);
-    y += 14;
-
-    pdf.setFont("helvetica", "normal");
-    pdf.text(conclWrapped, margin, y);
-    y += conclWrapped.length * lineHeight + 10;
-
-    // =============== FOOTER ON EACH PAGE ===============
-    const pageCount = pdf.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      pdf.setPage(i);
-      const footY = pdf.internal.pageSize.getHeight() - 30;
-      pdf.setLineWidth(0.5);
-      pdf.setDrawColor(200, 200, 200);
-      pdf.line(margin, footY - 10, pageWidth - margin, footY - 10);
+      pdf.setFont("helvetica", "normal");
       pdf.setFontSize(8);
-      pdf.setTextColor(120, 120, 120);
-      pdf.text("Confidential - Academic Use Only", margin, footY);
-      pdf.text(
-        "Generated by Real-Time Classroom Feedback System",
-        pageWidth - margin,
-        footY,
-        { align: "right" }
-      );
-      pdf.text(`Page ${i} of ${pageCount}`, pageWidth / 2, footY + 9, {
-        align: "center"
+      
+      const sampleComments = (summary.sampleComments || comments).slice(0, 3);
+      sampleComments.forEach((comment, index) => {
+        if (comment && y < pageHeight - 50) {
+          const cleanComment = comment.replace(/[^\w\s.,!?]/g, '').trim();
+          if (cleanComment) {
+            const commentLines = pdf.splitTextToSize(`"${cleanComment}"`, pageWidth - margin * 2 - 10);
+            pdf.text(commentLines, margin, y);
+            y += commentLines.length * lineHeight + 8;
+            
+            // Add separator if not last comment
+            if (index < sampleComments.length - 1 && y < pageHeight - 30) {
+              pdf.setDrawColor(220, 220, 220);
+              pdf.line(margin, y, pageWidth - margin, y);
+              y += 12;
+            }
+          }
+        }
       });
     }
 
+    // =============== FOOTERS ===============
+    const pageCount = pdf.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      pdf.setPage(i);
+      const footY = pdf.internal.pageSize.getHeight() - 20;
+      
+      pdf.setFontSize(8);
+      pdf.setTextColor(120, 120, 120);
+      pdf.text(`Page ${i} of ${pageCount}`, pageWidth / 2, footY, { align: "center" });
+      pdf.text("Generated by Classroom Feedback System", pageWidth - margin, footY, { align: "right" });
+    }
+
     // Save
-    pdf.save(`${sessionId}_BIT_Impact_Report.pdf`);
+    pdf.save(`${sessionId}_Teacher_Report.pdf`);
+
   } catch (err) {
     console.error("PDF generation error:", err);
     alert("Failed to generate PDF. See console for details.");
   }
+}
+
+// ===== HELPER FUNCTIONS =====
+function analyzeImpact(feedbacks, avgRating, totalResponses) {
+  const comments = feedbacks.map(f => f.comment || "").filter(Boolean);
+  const ratings = feedbacks.map(f => f.rating);
+  
+  // Calculate understanding levels
+  const understandingLevels = {
+    excellent: ratings.filter(r => r >= 4).length,
+    good: ratings.filter(r => r === 3).length,
+    needs_improvement: ratings.filter(r => r <= 2).length
+  };
+
+  // Analyze comment themes
+  const allText = comments.join(" ").toLowerCase();
+  const themes = {
+    clarity: (allText.match(/clear|understand|well explained/g) || []).length,
+    examples: (allText.match(/example|demonstrate|show how/g) || []).length,
+    pace: (allText.match(/fast|slow|pace|speed/g) || []).length,
+    engagement: (allText.match(/interesting|engaging|boring|enjoyed/g) || []).length
+  };
+
+  // Calculate percentages
+  const positivePercentage = Math.round((understandingLevels.excellent + understandingLevels.good) / totalResponses * 100);
+  
+  // Get top themes
+  const topThemes = Object.entries(themes)
+    .filter(([_, count]) => count > 0)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 2)
+    .map(([theme]) => theme);
+
+  return {
+    understandingLevel: getUnderstandingLevel(avgRating),
+    positivePercentage,
+    topThemes,
+    understandingLevels
+  };
+}
+
+function calculateTeachingEffectiveness(avgRating, totalResponses, impactAnalysis) {
+  const baseScore = (avgRating / 5) * 70;
+  const participationScore = Math.min((totalResponses / 30) * 30, 30);
+  
+  const totalScore = Math.round(baseScore + participationScore);
+  
+  return {
+    score: totalScore,
+    level: getEffectivenessLevel(totalScore),
+    strengths: identifyStrengths(impactAnalysis),
+    improvements: identifyImprovements(impactAnalysis)
+  };
+}
+
+function getUnderstandingLevel(avgRating) {
+  if (avgRating >= 4) return "Excellent";
+  if (avgRating >= 3) return "Good";
+  if (avgRating >= 2) return "Moderate";
+  return "Needs Attention";
+}
+
+function getEffectivenessLevel(score) {
+  if (score >= 85) return "Outstanding";
+  if (score >= 70) return "Effective";
+  if (score >= 55) return "Developing";
+  return "Needs Improvement";
+}
+
+function identifyStrengths(impactAnalysis) {
+  const strengths = [];
+  
+  if (impactAnalysis.understandingLevel === "Excellent" || impactAnalysis.understandingLevel === "Good") {
+    strengths.push({
+      title: "Strong Concept Delivery",
+      description: "Students demonstrated good understanding"
+    });
+  }
+  
+  if (impactAnalysis.positivePercentage >= 70) {
+    strengths.push({
+      title: "Positive Engagement",
+      description: "High percentage of positive responses"
+    });
+  }
+  
+  return strengths;
+}
+
+function identifyImprovements(impactAnalysis) {
+  const improvements = [];
+  
+  if (impactAnalysis.themeAnalysis?.pace > 0) {
+    improvements.push({
+      area: "Pacing",
+      action: "Adjust teaching pace based on student feedback"
+    });
+  }
+  
+  if (impactAnalysis.themeAnalysis?.examples > 0) {
+    improvements.push({
+      area: "Examples",
+      action: "Add more practical examples and demonstrations"
+    });
+  }
+  
+  if (impactAnalysis.understandingLevels?.needs_improvement > 0) {
+    improvements.push({
+      area: "Concept Clarity",
+      action: "Reinforce challenging topics identified by students"
+    });
+  }
+  
+  return improvements;
+}
+
+function generateQuickActions(teachingEffectiveness, impactAnalysis) {
+  const actions = [];
+  
+  if (teachingEffectiveness.improvements.length > 0) {
+    actions.push(`Focus on: ${teachingEffectiveness.improvements[0].area.toLowerCase()}`);
+  }
+  
+  if (impactAnalysis.topThemes.includes('examples')) {
+    actions.push("Prepare 2-3 additional practical examples");
+  }
+  
+  if (teachingEffectiveness.score < 70) {
+    actions.push("Review key concepts in next session");
+  } else {
+    actions.push("Continue current effective teaching methods");
+  }
+  
+  actions.push("Acknowledge student feedback in next class");
+  
+  return actions.slice(0, 3);
 }
 
 // ===== HELPER FUNCTION FOR RECOMMENDATIONS =====
