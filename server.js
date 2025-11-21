@@ -282,18 +282,18 @@ app.post("/api/summarize-comments", async (req, res) => {
 
     console.log(`🤖 AI summarization requested for ${comments.length} comments`);
 
-    // Try multiple working model endpoints
+    // Use CURRENTLY WORKING free models (updated 2024)
     const modelEndpoints = [
       {
-        url: "https://api-inference.huggingface.co/models/microsoft/DialoGPT-medium",
-        type: "conversational"
-      },
-      {
-        url: "https://api-inference.huggingface.co/models/google/pegasus-xsum", 
+        url: "https://api-inference.huggingface.co/models/Falconsai/text_summarization",
         type: "summarization"
       },
       {
-        url: "https://api-inference.huggingface.co/models/sshleifer/distilbart-cnn-12-6",
+        url: "https://api-inference.huggingface.co/models/pszemraj/led-large-book-summary", 
+        type: "summarization"
+      },
+      {
+        url: "https://api-inference.huggingface.co/models/lidiya/bart-large-xsum-samsum",
         type: "summarization"
       }
     ];
@@ -304,27 +304,14 @@ app.post("/api/summarize-comments", async (req, res) => {
       try {
         console.log(`Trying model: ${endpoint.url}`);
         
-        let requestBody;
-        if (endpoint.type === "conversational") {
-          // Use conversational approach for DialoGPT
-          requestBody = JSON.stringify({
-            inputs: {
-              text: `Please summarize these student feedback comments in one paragraph: ${commentText}`,
-              past_user_inputs: [],
-              generated_responses: []
-            }
-          });
-        } else {
-          // Standard summarization for other models
-          requestBody = JSON.stringify({
-            inputs: commentText,
-            parameters: {
-              max_length: 80,
-              min_length: 20,
-              do_sample: false
-            }
-          });
-        }
+        const requestBody = JSON.stringify({
+          inputs: commentText,
+          parameters: {
+            max_length: 100,
+            min_length: 30,
+            do_sample: false
+          }
+        });
 
         const fetchPromise = fetch(endpoint.url, {
           method: "POST",
@@ -335,7 +322,7 @@ app.post("/api/summarize-comments", async (req, res) => {
           body: requestBody
         });
 
-        const response = await Promise.race([fetchPromise, timeout(10000)]);
+        const response = await Promise.race([fetchPromise, timeout(15000)]);
 
         console.log(`Model ${endpoint.url} Response Status: ${response.status}`);
 
@@ -351,16 +338,9 @@ app.post("/api/summarize-comments", async (req, res) => {
         }
 
         const result = await response.json();
-        console.log("Model response:", JSON.stringify(result).substring(0, 300));
+        console.log("Model response received");
 
-        let summary = null;
-
-        // Extract summary based on model type
-        if (endpoint.type === "conversational") {
-          summary = result.generated_text;
-        } else {
-          summary = result[0]?.summary_text || result.summary_text;
-        }
+        let summary = result[0]?.summary_text || result.summary_text;
 
         if (summary) {
           console.log("✅ AI summarization successful with", endpoint.url);
