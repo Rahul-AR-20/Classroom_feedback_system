@@ -999,9 +999,25 @@ async function generatePDFReport() {
     // Capture charts as images
     const ratingImg = await captureCanvasAsImage("ratingChart");
 
-    // Comments analysis
+    // Comments analysis - FIX: Ensure we get proper string summary
     const comments = (data.feedbacks || []).map(f => f.comment || "").filter(Boolean);
-    const summary = await summarizeComments(comments);
+    let summary;
+    try {
+      summary = await summarizeComments(comments);
+      // Ensure summary is a proper object with string properties
+      if (!summary || typeof summary.summaryOneLine !== 'string') {
+        summary = {
+          summaryOneLine: generateFallbackSummary(comments),
+          sampleComments: comments.slice(0, 3)
+        };
+      }
+    } catch (error) {
+      console.log("Summary generation failed, using fallback:", error);
+      summary = {
+        summaryOneLine: generateFallbackSummary(comments),
+        sampleComments: comments.slice(0, 3)
+      };
+    }
 
     // Enhanced impact analysis
     const impactAnalysis = analyzeImpact(data.feedbacks, data.avgRating, data.totalResponses);
@@ -1063,7 +1079,7 @@ async function generatePDFReport() {
 
     // Quick Stats
     const stats = [
-      { label: "Responses", value: data.totalResponses },
+      { label: "Responses", value: String(data.totalResponses) }, // FIX: Ensure string
       { label: "Avg Rating", value: data.avgRating ? data.avgRating.toFixed(1) + "/5" : "N/A" },
       { label: "Understanding", value: impactAnalysis.understandingLevel }
     ];
@@ -1078,7 +1094,7 @@ async function generatePDFReport() {
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(16);
       pdf.setTextColor(0, 0, 0);
-      pdf.text(stat.value, statX + (statW - 10) / 2, y + 20, { align: "center" });
+      pdf.text(String(stat.value), statX + (statW - 10) / 2, y + 20, { align: "center" }); // FIX: Ensure string
       
       pdf.setFontSize(8);
       pdf.setTextColor(100, 100, 100);
@@ -1120,19 +1136,29 @@ async function generatePDFReport() {
 
     y += 10;
 
-    // Student Feedback Summary
-    if (summary.summaryOneLine) {
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(12);
-      pdf.text("STUDENT FEEDBACK SUMMARY", margin, y);
-      y += 16;
-
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(10);
-      const summaryLines = pdf.splitTextToSize(summary.summaryOneLine, pageWidth - margin * 2);
-      pdf.text(summaryLines, margin, y);
-      y += summaryLines.length * lineHeight + 10;
+    // Student Feedback Summary - FIX: Handle string conversion properly
+    let summaryText = "";
+    try {
+      // Ensure we have a valid string
+      if (summary && summary.summaryOneLine) {
+        summaryText = String(summary.summaryOneLine);
+      } else {
+        summaryText = generateFallbackSummary(comments);
+      }
+    } catch (error) {
+      summaryText = generateFallbackSummary(comments);
     }
+
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(12);
+    pdf.text("STUDENT FEEDBACK SUMMARY", margin, y);
+    y += 16;
+
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(10);
+    const summaryLines = pdf.splitTextToSize(summaryText, pageWidth - margin * 2);
+    pdf.text(summaryLines, margin, y);
+    y += summaryLines.length * lineHeight + 10;
 
     // =============== PAGE 2: ACTION PLAN ===============
     pdf.addPage();
@@ -1217,14 +1243,14 @@ async function generatePDFReport() {
       
       pdf.setFont("helvetica", "normal");
       pdf.setTextColor(0, 0, 0);
-      pdf.text(action, margin + 15, y);
+      pdf.text(String(action), margin + 15, y); // FIX: Ensure string
       
       y += 15;
     });
 
     y += 10;
 
-    // Sample Comments (if space permits)
+    // Sample Comments (if space permits) - FIX: Handle string conversion
     if (y < pageHeight - 100) {
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(12);
@@ -1237,7 +1263,8 @@ async function generatePDFReport() {
       const sampleComments = (summary.sampleComments || comments).slice(0, 3);
       sampleComments.forEach((comment, index) => {
         if (comment && y < pageHeight - 50) {
-          const cleanComment = comment.replace(/[^\w\s.,!?]/g, '').trim();
+          // FIX: Ensure comment is a string and clean it
+          let cleanComment = String(comment || "").replace(/[^\w\s.,!?]/g, '').trim();
           if (cleanComment) {
             const commentLines = pdf.splitTextToSize(`"${cleanComment}"`, pageWidth - margin * 2 - 10);
             pdf.text(commentLines, margin, y);
@@ -1275,7 +1302,25 @@ async function generatePDFReport() {
   }
 }
 
-// ===== HELPER FUNCTIONS =====
+// ===== ADDITIONAL HELPER FUNCTIONS =====
+function generateFallbackSummary(comments) {
+  const total = comments.length;
+  if (total === 0) return "No student comments available for analysis.";
+  
+  const text = comments.join(" ").toLowerCase();
+  
+  if (text.includes('confus') || text.includes('not understand')) {
+    return "Students expressed some confusion with certain concepts and requested clearer explanations.";
+  } else if (text.includes('example') || text.includes('demonstrate')) {
+    return "Students suggested adding more practical examples to improve understanding.";
+  } else if (text.includes('fast') || text.includes('slow')) {
+    return "Feedback indicates pacing adjustments could enhance the learning experience.";
+  } else {
+    return `Received ${total} student comments with mixed feedback. Review individual comments for specific insights.`;
+  }
+}
+
+// Rest of your helper functions remain the same...
 function analyzeImpact(feedbacks, avgRating, totalResponses) {
   const comments = feedbacks.map(f => f.comment || "").filter(Boolean);
   const ratings = feedbacks.map(f => f.rating);
