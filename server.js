@@ -96,10 +96,10 @@ app.post("/api/teacher/signup", async (req, res) => {
     const t = await Teacher.create({ name, email, password: hashed });
     const token = jwt.sign({ id: t._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
     res.json({
-  success: true,
-  token,
-  user: { id: t._id, name: t.name, email: t.email }
-});
+      success: true,
+      token,
+      user: { id: t._id, name: t.name, email: t.email }
+    });
   } catch (err) {
     console.error("Signup error:", err);
     res.status(500).json({ success: false, message: "Signup failed" });
@@ -115,10 +115,11 @@ app.post("/api/teacher/login", async (req, res) => {
     if (!ok) return res.status(400).json({ success: false, message: "Invalid credentials" });
     const token = jwt.sign({ id: t._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
     res.json({
-  success: true,
-  token,
-  user: { id: t._id, name: t.name, email: t.email }
-});  } catch (err) {
+      success: true,
+      token,
+      user: { id: t._id, name: t.name, email: t.email }
+    });
+  } catch (err) {
     console.error("Login error:", err);
     res.status(500).json({ success: false, message: "Login failed" });
   }
@@ -246,219 +247,109 @@ app.get("/api/teacher/analytics/latest", auth, async (req, res) => {
   }
 });
 
-// Add this near the top with other requires
-
-// ===== FREE AI SUMMARIZATION WITH HUGGING FACE =====
-// --- Fetch Polyfill for Node (Render uses Node 16) ---
-const fetch = (...args) =>
-  import("node-fetch").then(({ default: fetch }) => fetch(...args));
-
-// ===== AI SUMMARIZATION USING HUGGINGFACE =====
+// ===== GROQ AI SUMMARIZATION =====
 app.post("/api/summarize-comments", async (req, res) => {
-  // Create a timeout promise for Node.js compatibility
-  const timeout = (ms) => new Promise((_, reject) => {
-    setTimeout(() => reject(new Error('Request timeout')), ms);
-  });
-
   try {
-    const { comments } = req.body;
+    const { comments, subject = "" } = req.body;
 
     if (!comments || comments.length === 0) {
       return res.json({ success: true, summary: "No comments available." });
     }
 
-    const commentText = comments.slice(0, 50).join(". ");
-    
-    // Validate token
-    if (!process.env.HUGGING_FACE_TOKEN || !process.env.HUGGING_FACE_TOKEN.startsWith('hf_')) {
-      console.log("Invalid or missing Hugging Face token");
-      const fallback = fallbackSummarizeComments(comments);
+    console.log(`🤖 Groq AI analyzing ${comments.length} comments`);
+
+    // Check if Groq API key exists
+    if (!process.env.GROQ_API_KEY) {
+      console.log("❌ No Groq API key found - using enhanced analysis");
+      const enhancedSummary = generateEnhancedSummary(comments, subject);
       return res.json({
         success: true,
-        summary: fallback.summaryOneLine,
-        isFallback: true
+        summary: enhancedSummary,
+        isAI: false
       });
     }
 
-    console.log(`🤖 AI summarization requested for ${comments.length} comments`);
-
-    // Use CURRENTLY WORKING free models (updated 2024)
-    const modelEndpoints = [
-      {
-        url: "https://api-inference.huggingface.co/models/Falconsai/text_summarization",
-        type: "summarization"
+    // Try Groq AI
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
+        "Content-Type": "application/json"
       },
-      {
-        url: "https://api-inference.huggingface.co/models/pszemraj/led-large-book-summary", 
-        type: "summarization"
-      },
-      {
-        url: "https://api-inference.huggingface.co/models/lidiya/bart-large-xsum-samsum",
-        type: "summarization"
-      }
-    ];
+      body: JSON.stringify({
+        model: "llama3-8b-8192",
+        messages: [{
+          role: "user", 
+          content: `Analyze these student comments and provide a concise 2-3 line summary focusing on main issues and suggestions: ${comments.slice(0, 30).join("\n")}`
+        }],
+        max_tokens: 150,
+        temperature: 0.7
+      })
+    });
 
-    let lastError = null;
-
-    for (const endpoint of modelEndpoints) {
-      try {
-        console.log(`Trying model: ${endpoint.url}`);
-        
-        const requestBody = JSON.stringify({
-          inputs: commentText,
-          parameters: {
-            max_length: 100,
-            min_length: 30,
-            do_sample: false
-          }
+    if (response.ok) {
+      const data = await response.json();
+      const summary = data.choices[0]?.message?.content;
+      if (summary) {
+        console.log("✅ Groq AI summarization successful");
+        return res.json({
+          success: true,
+          summary: summary.trim(),
+          isAI: true,
+          model: "groq"
         });
-
-        const fetchPromise = fetch(endpoint.url, {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${process.env.HUGGING_FACE_TOKEN}`,
-            "Content-Type": "application/json"
-          },
-          body: requestBody
-        });
-
-        const response = await Promise.race([fetchPromise, timeout(15000)]);
-
-        console.log(`Model ${endpoint.url} Response Status: ${response.status}`);
-
-        if (response.status === 503) {
-          console.log("Model is loading, trying next model...");
-          continue;
-        }
-
-        if (!response.ok) {
-          console.log(`Model ${endpoint.url} failed: ${response.status} ${response.statusText}`);
-          lastError = `HTTP ${response.status}`;
-          continue; // Try next model
-        }
-
-        const result = await response.json();
-        console.log("Model response received");
-
-        let summary = result[0]?.summary_text || result.summary_text;
-
-        if (summary) {
-          console.log("✅ AI summarization successful with", endpoint.url);
-          return res.json({
-            success: true,
-            summary: summary,
-            isFallback: false,
-            model: endpoint.url
-          });
-        } else {
-          console.log("No summary in response from", endpoint.url);
-          lastError = "Empty response";
-        }
-
-      } catch (modelError) {
-        console.log(`Model ${endpoint.url} error:`, modelError.message);
-        lastError = modelError.message;
-        continue; // Try next model
       }
+    } else {
+      console.log("Groq API error:", response.status);
     }
 
-    // If all models failed, use fallback
-    console.log("All AI models failed, using fallback. Last error:", lastError);
-    const fallback = fallbackSummarizeComments(comments);
+    // Fallback to enhanced analysis
+    console.log("Groq AI failed, using enhanced analysis");
+    const enhancedSummary = generateEnhancedSummary(comments, subject);
     return res.json({
       success: true,
-      summary: fallback.summaryOneLine,
-      isFallback: true,
-      note: "AI service unavailable, using rule-based analysis"
+      summary: enhancedSummary,
+      isAI: false
     });
 
   } catch (err) {
-    console.error("AI Summarization overall error:", err.message);
-    const fallback = fallbackSummarizeComments(req.body.comments || []);
+    console.error("Summarization error:", err.message);
+    const enhancedSummary = generateEnhancedSummary(req.body.comments || [], "");
     return res.json({
       success: true,
-      summary: fallback.summaryOneLine,
-      isFallback: true,
-      note: "AI service error"
+      summary: enhancedSummary,
+      isAI: false
     });
   }
 });
 
-
-// Enhanced keyword-based fallback (KEEP THIS - it's your original working code)
-// Enhanced keyword-based fallback
-function fallbackSummarizeComments(comments) {
-  if (!comments || comments.length === 0) {
-    return {
-      summaryOneLine: "No comments to summarize.",
-      sampleComments: []
-    };
-  }
-
-  try {
-    const text = comments.join(" ").toLowerCase();
-    const totalComments = comments.length;
-    
-    // Enhanced keyword analysis
-    const understandingIssues = (text.match(/not understand|confus|difficult|hard|unclear|don't get|didn't get/g) || []).length;
-    const paceIssues = (text.match(/fast|slow|pace|speed|rushed|too quick/g) || []).length;
-    const exampleRequests = (text.match(/example|instance|case|demonstrat|show how/g) || []).length;
-    const clarityPositive = (text.match(/clear|well explained|good|understand|helpful|great|excellent/g) || []).length;
-    const visualIssues = (text.match(/diagram|graph|chart|visual|picture|see|show/g) || []).length;
-
-    let issues = [];
-    let positives = [];
-
-    // Positive feedback
-    if (clarityPositive > totalComments * 0.3) {
-      positives.push(`Most students (${Math.round(clarityPositive/totalComments*100)}%) found the session clear and helpful`);
-    }
-
-    // Issues
-    if (understandingIssues > totalComments * 0.2) {
-      issues.push(`Some students (${Math.round(understandingIssues/totalComments*100)}%) found concepts difficult to understand`);
-    }
-    
-    if (paceIssues > 0) {
-      issues.push(`Teaching pace needs adjustment based on feedback`);
-    }
-    
-    if (exampleRequests > 0) {
-      issues.push(`Students requested more practical examples`);
-    }
-    
-    if (visualIssues > 0) {
-      issues.push(`Visual aids could be enhanced for better understanding`);
-    }
-
-    let summary = "";
-    
-    if (positives.length > 0) {
-      summary += positives.join(". ") + ". ";
-    }
-    
-    if (issues.length > 0) {
-      summary += "Areas for improvement: " + issues.join("; ") + ".";
-    }
-
-    if (!summary.trim()) {
-      summary = `Received ${totalComments} comments with mixed feedback. Consider reviewing specific student suggestions for detailed insights.`;
-    }
-
-    return {
-      summaryOneLine: summary,
-      sampleComments: comments.slice(0, 6) // Show fewer samples for fallback
-    };
-  } catch (error) {
-    console.error("Fallback summarization error:", error);
-    return {
-      summaryOneLine: `Analysis completed for ${comments.length} student comments. Review individual feedback for specific insights.`,
-      sampleComments: comments.slice(0, 4)
-    };
-  }
+// Enhanced fallback function (CORRECTED - only one function)
+function generateEnhancedSummary(comments, subject) {
+  const totalComments = comments.length;
+  const allText = comments.join(" ").toLowerCase();
+  
+  const hasConfusion = allText.includes('confus') || allText.includes('not understand');
+  const needsExamples = allText.includes('example') || allText.includes('demonstrate');
+  const paceFast = allText.includes('too fast') || allText.includes('rushed');
+  const isClear = allText.includes('clear') || allText.includes('well explained');
+  
+  let summary = "";
+  
+  // Line 1
+  if (hasConfusion) summary += "Students found some concepts challenging. ";
+  else if (isClear) summary += "Students understood the material well. ";
+  else summary += "Mixed feedback on understanding. ";
+  
+  // Line 2  
+  if (needsExamples) summary += "More examples requested. ";
+  else if (paceFast) summary += "Pace was too fast. ";
+  else summary += "Teaching approach effective. ";
+  
+  // Line 3
+  summary += "Feedback provides improvement insights.";
+  
+  return summary;
 }
-
-// NO enhanceSummaryWithKeywords FUNCTION - DELETED
 
 app.listen(PORT, () => {
   console.log(`🚀 Server running at http://localhost:${PORT}`);
